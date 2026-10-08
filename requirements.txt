@@ -1,0 +1,3 @@
+# Zależności skryptów so101_lerobot (reszta z ROS 2 Jazzy przez rosdep)
+ultralytics
+mediapipe
