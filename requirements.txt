@@ -1,3 +1,2 @@
 # Zależności skryptów so101_lerobot (reszta z ROS 2 Jazzy przez rosdep)
 ultralytics==8.4.22
-# mediapipe  # potrzebny tylko lerobot_candy/scripts/hand_detector.py; dotąd nigdzie niezainstalowany

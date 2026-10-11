@@ -1,9 +1,8 @@
 # so101_lerobot
 
-Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04):
+Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation only for now:
 
 - `lerobot_mimic/` — the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
-- `lerobot_candy/` — candy / hand detection and motion planning experiments.
 
 ## Workspace
 
