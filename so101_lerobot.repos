@@ -1,0 +1,9 @@
+repositories:
+  lerobot_ws:
+    type: git
+    url: https://github.com/Pavankv92/lerobot_ws.git
+    version: 49686a8cec605f8744586bb19117ce2a69cef313
+  lerobot-ros:
+    type: git
+    url: https://github.com/ycheng517/lerobot-ros.git
+    version: dabe6c6c7637c2f139e1c9964864a64921893ba1
