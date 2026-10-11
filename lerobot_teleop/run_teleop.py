@@ -1,12 +1,12 @@
 import sys
 from lerobot.scripts.lerobot_teleoperate import main
 
-# Importujemy nasze modyfikacje, aby dekoratory @RobotConfig.register_subclass z ycheng517 się odpaliły
+# Import the plugins so that their @RobotConfig.register_subclass decorators (from ycheng517/lerobot-ros) run
 import lerobot_robot_ros
 import lerobot_teleoperator_devices
 
 if __name__ == "__main__":
-    # Nadpisujemy argumenty systemowe (to samo co wpisywałeś w bashu)
+    # Override the command-line arguments (same as typing them after lerobot-teleoperate in bash)
     sys.argv = [
         "lerobot-teleoperate",
         "--robot.type=so101_ros",
