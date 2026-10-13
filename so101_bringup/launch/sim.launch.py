@@ -1,5 +1,8 @@
 """Start the whole SO-101 simulation with one command.
 
+All ROS nodes, including those from the included launch files, use the Gazebo
+clock (use_sim_time); the upstream RViz node does not set it on its own.
+
 Startup order:
 1. Gazebo with the robot, robot_state_publisher and the /clock bridge.
 2. Controller spawner: waits for the controller_manager that runs inside Gazebo
@@ -12,7 +15,7 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, RegisterEventHandler
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import PathJoinSubstitution
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetParameter
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -45,4 +48,11 @@ def generate_launch_description():
         OnProcessExit(target_action=controller_spawner, on_exit=[moveit])
     )
 
-    return LaunchDescription([gazebo, controller_spawner, start_moveit_after_controllers])
+    return LaunchDescription(
+        [
+            SetParameter(name="use_sim_time", value=True),
+            gazebo,
+            controller_spawner,
+            start_moveit_after_controllers,
+        ]
+    )
