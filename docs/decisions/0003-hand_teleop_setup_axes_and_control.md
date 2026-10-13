@@ -6,8 +6,8 @@
 ## Context
 
 Only the laptop webcam is available. A single camera measures motion in the image plane well and depth
-poorly. The idea: show the right hand to the camera from the side, posed like the SO-101 gripper tilted down,
-and let the image play the role of a side view of the robot. The robot then moves at most in the XZ plane
+poorly. The idea: show the right arm to the camera from the side, with the hand posed like the SO-101 gripper
+tilted down, and let the image play the role of a side view of the robot. The robot then moves at most in the XZ plane
 of its base (shoulder pan fixed at 0), and closing the hand closes the gripper.
 
 ## Decision
@@ -15,21 +15,25 @@ of its base (shoulder pan fixed at 0), and closing the hand closes the gripper.
 Setup:
 
 ```
-Desk from above                          Gazebo view from the robot's left side
+Desk from above                              Mirrored preview ≈ Gazebo view from the robot's left side
 
-   [======== laptop ========]                     +Z
-             (cam)                                 ^      ____
-              |                                    |     /    \
-              v  40-60 cm                          |    /      \___[#] base
-        [ right hand ]                             |   V gripper
-              ^                           +X <-----+--------------------
-             me                           (robot forward is to the left)
+     [======== laptop ========]                 +Z
+               (cam)                             ^
+                 |  40-60 cm                     |   hand ≈ gripper        elbow ≈ base
+                 v                               |      V <====== forearm ======o
+   hand <====== forearm ====== elbow             |
+   (my left)    (right arm)    (my right)        +-------------------------------------
+                 me                       +X <-- robot forward is to the left
 ```
 
-- Right hand 40–60 cm in front of the webcam, forearm towards the screen, fingers pointing down like a beak,
-  palm facing my left, thumb towards the camera: the camera sees the thumb and index finger from the side
-  and the gap between them opens left–right in the image.
+- My right forearm is held across the body, 40–60 cm in front of the webcam: elbow on my right, hand on my
+  left. The camera sees the arm from the side; in the mirrored preview the elbow is where the robot base is
+  in Gazebo (right) and the hand where the gripper is (left).
+- The hand is posed like the gripper tilted down: fingers pointing down, thumb and fingers as the two jaws,
+  palm not facing the camera.
 - Gazebo is viewed from the robot's left side, so robot +X (forward) is to the left on the screen and +Z is up.
+- Risk: with the palm down the camera sees the little-finger side, so the thumb and index finger can be
+  hidden. ROB-19 compares this side pose with a frontal pose and several aperture measures.
 
 Axes (computed on the raw frame: `u` to the right, `v` down; robot base: X forward, Z up):
 
@@ -43,8 +47,9 @@ all computations use the raw frame.
 
 Gripper (stage 1):
 
-- Measure: thumb tip – index tip distance from world landmarks (metres); ROB-19 compares it with the image
-  distance divided by the palm length.
+- Measure, chosen in ROB-19 from: thumb tip – index tip distance, thumb tip – mean of the four fingertips
+  ("beak", robust when the index finger is hidden), mean fingertip–wrist distance / palm length ("open ratio",
+  open hand vs fist), all from world landmarks, and the image thumb–index distance / palm length.
 - Two-pose calibration (open, closed) maps the measure to 0…1, then to joint "6" (1.745 rad open, 0.0 rad closed).
 - EMA filter first (One Euro filter if lag or jitter is a problem); no hand for more than 0.5 s → stop
   sending goals, the controller holds the last one.
@@ -75,5 +80,6 @@ Arm (stage 2):
 ## Consequences
 
 - No depth estimation and no calibration template: one camera is enough for stages 1–2.
-- The hand pose is unusual and may tire the wrist; the spike (ROB-19) can change it.
+- Holding the forearm across the body tires the shoulder (resting the elbow on the desk helps); the spike
+  (ROB-19) can change the pose.
 - The planar IK stays as the explained baseline even when full 3D is added.
