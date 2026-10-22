@@ -52,13 +52,18 @@ source .venv/bin/activate
 python -m colcon build
 ```
 
-Simulation (three terminals, each with `source install/setup.bash` and the venv active):
+Simulation: Gazebo, controllers, MoveIt and RViz with one command (`source install/setup.bash` and the venv active):
 
 ```bash
-ros2 launch lerobot_description so101_gazebo.launch.py
-ros2 launch lerobot_controller so101_controller.launch.py
-ros2 launch lerobot_moveit so101_moveit.launch.py
+ros2 launch so101_bringup sim.launch.py
 ```
+
+MoveIt and RViz start after the controller spawner has exited. For debugging, the parts can still be
+started separately, in this order: `lerobot_description so101_gazebo.launch.py`,
+`lerobot_controller so101_controller.launch.py`, `lerobot_moveit so101_moveit.launch.py`.
+
+The arm has 5 joints, so the RViz interactive marker (a full 6-DoF pose for KDL IK) rarely finds a solution:
+set the goal with "Goal State" or tick "Approx IK Solutions" in the Planning tab.
 
 Keyboard teleoperation (simulation running, venv active):
 
