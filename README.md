@@ -41,7 +41,8 @@ touch .venv/COLCON_IGNORE
 
 - `requirements.txt` — direct dependencies of these scripts.
 - `requirements-lock.txt` — full pinned set (LeRobot, torch CUDA 12.8, …) without ROS packages.
-- `constraints.txt` — keeps `opencv-python` at a version compatible with ROS 2 Jazzy.
+- `constraints.txt` — keeps `opencv-python` and `opencv-contrib-python` (pulled in by MediaPipe) at a version
+  compatible with ROS 2 Jazzy.
 - `setuptools<80` is required by colcon.
 
 ## Build and run

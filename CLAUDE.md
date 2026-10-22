@@ -45,7 +45,10 @@ the simulator for data collection (so101-nexus/MuJoCo) is confirmed in M3.
 ## Pitfalls
 
 - The venv has numpy 2.2.6; `cv_bridge` from apt is built for numpy 1.x and crashes there: read images without it.
-- Two OpenCV wheels share `cv2` in the venv; `pip install mediapipe` would add `opencv-contrib-python` 5.x (ADR 0002).
+- Three OpenCV wheels share `cv2` in the venv (`opencv-contrib-python` is pinned to 4.12.0.88 in `constraints.txt`:
+  MediaPipe would pull 5.x). Always install with `-c src/so101_lerobot/constraints.txt` (ADR 0002).
+- MediaPipe imports `matplotlib`; the apt one (3.6) is built for numpy 1.x and crashes, so the venv has its own.
+  The "Unable to import Axes3D" warning is harmless.
 - Gripper joint "6": 0.0 rad closed, 1.745 rad open (lerobot-ros normalises 0 = open, 1 = closed).
 - The RViz marker rarely moves the 5-joint arm (KDL solves the full 6D pose): use Goal State or "Approx IK Solutions".
 - The third-party RViz node has no `use_sim_time`; `sim.launch.py` sets it for every node.
