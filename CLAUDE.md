@@ -15,7 +15,8 @@ in Gazebo — M1 hand → gripper, M2 hand → arm in the XZ plane; data collect
   `moveit:=false hand:=true` starts the hand node instead of MoveIt (alias `so101_hand`). The robot is
   `urdf/so101_sim.urdf.xacro`: the upstream one with our `config/so101_controllers.yaml` at 100 Hz (ADR 0004).
 - `so101_hand/` — plain Python, no `rclpy` (`pyproject.toml`, `COLCON_IGNORE`, `pip install -e`): `measures`,
-  `calibration`, `filters`, `gripper` and `tracker` (the only MediaPipe import); `pytest` tests in `tests/`.
+  `calibration`, `filters`, `gripper`, `kinematics` (planar FK/IK, TCP) and `tracker` (the only MediaPipe
+  import); `pytest` tests in `tests/`, `tests/urdf_reference.py` = generic FK of the third-party URDF.
 - `so101_hand_ros/` — node `hand_gripper`: webcam (or `video_path`) → `so101_hand` → goals on
   `/gripper_controller/joint_trajectory`; parameters and my calibration in `config/hand_gripper.yaml`.
 - `lerobot_teleop/run_teleop.py` — keyboard joint teleoperation through LeRobot (`so101_ros`, `keyboard_joint`).

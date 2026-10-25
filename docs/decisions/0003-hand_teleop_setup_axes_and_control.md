@@ -48,6 +48,10 @@ Axes (computed on the raw frame: `u` to the right, `v` down; robot base: X forwa
 The preview window shows the frame mirrored, so the hand on the screen moves like the robot in Gazebo;
 all computations use the raw frame.
 
+Note (ROB-28): in the `lerobot_ws` URDF the arm at zero points along −Y of the `base` frame and joints 2–4 turn
+about its X axis, so the motion plane is the base YZ plane. "X forward" in this ADR means the arm's forward
+direction (−Y of `base`); the code calls the plane coordinates reach (forward) and height (up).
+
 Gripper (stage 1):
 
 - Measure (chosen in ROB-19): the image distance thumb tip – index tip divided by the palm length (wrist –
@@ -58,6 +62,8 @@ Gripper (stage 1):
 - Two-pose calibration (keys `c` and `o`: quartiles of the measure over the last second, so noise keeps the
   gripper at its ends) maps the measure to 0…1, then to joint "6": 0.0 rad closed, 1.725 rad open — the URDF
   limit 1.745 minus a 0.02 rad margin, because a goal beyond the limit leaves the simulated jaw stuck.
+  At 0.0 rad the jaw tips are still 16 mm apart (their meshes): grasping thin objects later (M3) needs goals
+  below 0.0, down to the lower limit −0.17 rad.
 - EMA filter (alpha 0.4, about 50 ms of lag at 20 fps; One Euro filter if lag or jitter is a problem); goals at
   10 Hz with `time_from_start` 0.1 s; no hand for more than 0.5 s → stop sending goals, the controller holds
   the last one.
@@ -69,10 +75,13 @@ Arm (stage 2):
   with a latched reference).
 - Scale in metres per pixel at the hand's depth = palm length in world landmarks / palm length in pixels.
 - Workspace bounds in XZ and a maximum step per cycle (like LeRobot's `EEBoundsAndSafety`).
-- Own planar IK: with the pan at 0 and a fixed wrist roll, shoulder lift, elbow flex and wrist flex form a
-  planar 3R chain; target x, z and pitch → wrist point → two-link solution (law of cosines) → wrist angle.
-  Zero offsets come from the URDF and are checked by a forward-kinematics test against TF.
-- The TCP frame (between the jaws) is defined in our code; the third-party URDF has none.
+- Own planar IK (`so101_hand/kinematics.py`): with the pan at 0 and a fixed wrist roll, shoulder lift, elbow
+  flex and wrist flex form a planar 3R chain; target reach, height and pitch → wrist point → two-link solution
+  (law of cosines) → wrist angle; of the two solutions (elbow up or down) the one closest to the current
+  joints. The link vectors at zero come from the URDF; the forward kinematics matches a generic FK of the URDF
+  and TF from `robot_state_publisher` to 0.005 mm.
+- The TCP is defined in our code (the third-party URDF has none): between the closed jaws, 7 mm behind their
+  tips, at (0, 0, −0.098) m in the `gripper` link frame.
 
 ## Rejected or deferred
 
