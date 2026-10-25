@@ -3,8 +3,9 @@
 Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation only for now:
 
 - `so101_bringup/` — Gazebo, controllers, MoveIt and RViz with one command.
-- `so101_hand/`, `so101_hand_ros/` — close your hand to close the simulated gripper: hand tracking from the webcam
-  (MediaPipe) as a plain Python package with `pytest` tests, and a thin ROS 2 node.
+- `so101_hand/`, `so101_hand_ros/` — hand teleoperation from the webcam: closing the hand closes the simulated
+  gripper, moving it moves the arm in its plane. Hand tracking (MediaPipe), measures, calibration, filters,
+  kinematics and the clutch as a plain Python package with `pytest` tests, and a thin ROS 2 node (`hand_teleop`).
 - `lerobot_teleop/run_teleop.py` — keyboard teleoperation of the simulated arm through LeRobot.
 - `lerobot_mimic/` — legacy: the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
 
@@ -106,12 +107,34 @@ Gazebo starts first; the hand node and its preview window start once the control
 mirrored: the red line is the thumb–index gap, the white one the palm length it is divided by.
 
 - Calibration: hold the closed hand still for a second and press `c`, then the open hand and `o`. The node prints
-  `aperture_closed` and `aperture_open`; to keep them, put them in `so101_hand_ros/config/hand_gripper.yaml`
+  `aperture_closed` and `aperture_open`; to keep them, put them in `so101_hand_ros/config/hand_teleop.yaml`
   (installed as a symlink, no rebuild needed). `q` closes the node; Gazebo keeps running.
 - Hand lost for more than `hold_s` (0.5 s): the node stops sending goals and the gripper stays where it is.
 - Goals never leave the joint range: a goal beyond the URDF limit would leave the simulated jaw stuck.
 - Without a webcam, a recorded video is replayed in real time:
-  `ros2 run so101_hand_ros hand_gripper --ros-args -p video_path:=<file> -p preview:=false`.
+  `ros2 run so101_hand_ros hand_teleop --ros-args -p video_path:=<file> -p preview:=false`.
+
+## Hand → arm (stage 2)
+
+```bash
+ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true arm:=true
+```
+
+The gripper works as in stage 1. The arm first goes to a home pose (gripper 25 cm in front of the base, 15 cm
+up, jaws 45° down). Then:
+
+- `space` engages the clutch: the node latches where your wrist is in the image and where the gripper is. While
+  engaged, the gripper moves like your hand (ADR 0003): stretching the arm, i.e. the hand to your left → forward,
+  hand up → up; the jaws keep their angle. Look at the robot in Gazebo from its left side, and the gripper moves on
+  the screen like your hand in the mirrored preview. `space` again releases the clutch and the arm stops, so you
+  can move your hand to a comfortable place and engage again, like lifting a mouse.
+- `h` releases the clutch and sends the arm home.
+- The scale comes from MediaPipe (palm length in metres / in pixels), so the gripper moves as far as your hand
+  (`gain` 1.0). Targets stay in the box `bounds_reach` × `bounds_height`, move at most `max_step_m` (2 cm) per
+  frame and skip poses the arm cannot reach.
+- The arm moves in its vertical plane: joints 1 (pan) and 5 (wrist roll) stay at 0, and our planar IK
+  (`so101_hand/kinematics.py`) turns the target into joints 2–4. The TF frame `tcp` shows the point between the jaws.
+- Without the keyboard: `ros2 service call /hand_teleop/clutch std_srvs/srv/SetBool "{data: true}"`.
 
 Tests of the hand logic, no ROS or camera needed (venv active, in `so101_ws`):
 

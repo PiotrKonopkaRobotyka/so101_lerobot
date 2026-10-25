@@ -70,9 +70,12 @@ Gripper (stage 1):
 
 Arm (stage 2):
 
-- Relative control with a clutch: while a key is held, TCP target = TCP pose at the press + gain × hand
-  displacement since the press; releasing the key stops the robot (like LeRobot's `EEReferenceAndDelta`
-  with a latched reference).
+- Relative control with a clutch: while engaged, TCP target = TCP pose at engage + gain × hand displacement
+  since engage; releasing stops the robot (like LeRobot's `EEReferenceAndDelta` with a latched reference).
+  Built in ROB-28 (`so101_hand/teleop.py`) with space toggling the clutch instead of a held key: the OpenCV
+  window reports key presses, not held keys. The service `~/clutch` does the same without the keyboard. The
+  jaws keep the pitch they had at engage; the arm starts from a home pose (TCP 0.25 m forward, 0.15 m up,
+  jaws 45° down).
 - Scale in metres per pixel at the hand's depth = palm length in world landmarks / palm length in pixels.
 - Workspace bounds in XZ and a maximum step per cycle (like LeRobot's `EEBoundsAndSafety`).
 - Own planar IK (`so101_hand/kinematics.py`): with the pan at 0 and a fixed wrist roll, shoulder lift, elbow

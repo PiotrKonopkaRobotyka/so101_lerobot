@@ -12,13 +12,13 @@ in Gazebo — M1 hand → gripper, M2 hand → arm in the XZ plane; data collect
 ## Packages in this repository
 
 - `so101_bringup/` — `sim.launch.py`: Gazebo, controllers, MoveIt and RViz with one command (alias `so101_sim`);
-  `moveit:=false hand:=true` starts the hand node instead of MoveIt (alias `so101_hand`). The robot is
+  `moveit:=false hand:=true [arm:=true]` starts the hand node instead of MoveIt (alias `so101_hand`). The robot is
   `urdf/so101_sim.urdf.xacro`: the upstream one with our `config/so101_controllers.yaml` at 100 Hz (ADR 0004).
 - `so101_hand/` — plain Python, no `rclpy` (`pyproject.toml`, `COLCON_IGNORE`, `pip install -e`): `measures`,
-  `calibration`, `filters`, `gripper`, `kinematics` (planar FK/IK, TCP) and `tracker` (the only MediaPipe
-  import); `pytest` tests in `tests/`, `tests/urdf_reference.py` = generic FK of the third-party URDF.
-- `so101_hand_ros/` — node `hand_gripper`: webcam (or `video_path`) → `so101_hand` → goals on
-  `/gripper_controller/joint_trajectory`; parameters and my calibration in `config/hand_gripper.yaml`.
+  `calibration`, `filters`, `gripper`, `kinematics` (planar FK/IK, TCP), `teleop` (clutch) and `tracker` (the only
+  MediaPipe import); `pytest` tests in `tests/`, `tests/urdf_reference.py` = generic FK of the third-party URDF.
+- `so101_hand_ros/` — node `hand_teleop`: webcam (or `video_path`) → `so101_hand` → gripper goals and, with
+  `arm`, arm goals (joints 1 and 5 at 0); clutch on space or `~/clutch`; parameters in `config/hand_teleop.yaml`.
 - `lerobot_teleop/run_teleop.py` — keyboard joint teleoperation through LeRobot (`so101_ros`, `keyboard_joint`).
 - `lerobot_mimic/` — legacy YOLO pose (AGPL-3.0) arm mimicking, J2/J3 only; kept as an example.
 
@@ -62,5 +62,5 @@ in Gazebo — M1 hand → gripper, M2 hand → arm in the XZ plane; data collect
 
 ## Current milestone
 
-M1 Hand → gripper: stage 1 (ROB-27) works with the webcam; the simulated joints follow goals in ~0.3 s since
-ROB-30. Next: M2 Hand → arm in the XZ plane (ROB-28).
+M2 Hand → arm (ROB-28): kinematics, clutch and node done and checked in headless Gazebo with a video; next the
+webcam test with my hand. Stage 1 (ROB-27) works with the webcam; joints follow goals in ~0.3 s (ROB-30).
