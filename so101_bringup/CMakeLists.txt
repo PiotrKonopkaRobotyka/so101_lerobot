@@ -4,7 +4,7 @@ project(so101_bringup)
 find_package(ament_cmake REQUIRED)
 
 install(
-  DIRECTORY launch
+  DIRECTORY config launch urdf
   DESTINATION share/${PROJECT_NAME}
 )
 
