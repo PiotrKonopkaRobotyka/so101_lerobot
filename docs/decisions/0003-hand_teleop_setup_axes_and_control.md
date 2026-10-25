@@ -1,6 +1,7 @@
 # 0003. Hand teleoperation: camera setup, axes and control
 
-- Status: Proposed — the pose is checked in ROB-19, the control in ROB-27 (stage 1) and ROB-28 (stage 2)
+- Status: Accepted for the setup, the axes and the gripper (pose confirmed in ROB-19, gripper control in ROB-27);
+  the arm control stays proposed until ROB-28 (stage 2)
 - Date: 2026-10-13
 
 ## Context
@@ -33,7 +34,9 @@ Desk from above                              Mirrored preview ≈ Gazebo view fr
   palm not facing the camera.
 - Gazebo is viewed from the robot's left side, so robot +X (forward) is to the left on the screen and +Z is up.
 - Risk: with the palm down the camera sees the little-finger side, so the thumb and index finger can be
-  hidden. ROB-19 compares this side pose with a frontal pose and several aperture measures.
+  hidden. ROB-19 (2026-10-22) confirmed the side view: the hand was found in 100% of frames and every measure
+  told open from closed in 98.8–99.5% of frames. The frontal pose is steadier and stays the fallback if the side
+  pose tires the arm.
 
 Axes (computed on the raw frame: `u` to the right, `v` down; robot base: X forward, Z up):
 
@@ -47,12 +50,17 @@ all computations use the raw frame.
 
 Gripper (stage 1):
 
-- Measure, chosen in ROB-19 from: thumb tip – index tip distance, thumb tip – mean of the four fingertips
-  ("beak", robust when the index finger is hidden), mean fingertip–wrist distance / palm length ("open ratio",
-  open hand vs fist), all from world landmarks, and the image thumb–index distance / palm length.
-- Two-pose calibration (open, closed) maps the measure to 0…1, then to joint "6" (1.745 rad open, 0.0 rad closed).
-- EMA filter first (One Euro filter if lag or jitter is a problem); no hand for more than 0.5 s → stop
-  sending goals, the controller holds the last one.
+- Measure (chosen in ROB-19): the image distance thumb tip – index tip divided by the palm length (wrist –
+  middle-finger MCP), in pixels. It had the lowest noise with the hand closed and the smallest frame-to-frame
+  jumps; dividing by the palm length cancels the distance to the camera. Fallback: thumb–index from world
+  landmarks. Also compared: thumb – mean of the four fingertips ("beak") and fingertips–wrist / palm length
+  ("open ratio").
+- Two-pose calibration (keys `c` and `o`: quartiles of the measure over the last second, so noise keeps the
+  gripper at its ends) maps the measure to 0…1, then to joint "6": 0.0 rad closed, 1.725 rad open — the URDF
+  limit 1.745 minus a 0.02 rad margin, because a goal beyond the limit leaves the simulated jaw stuck.
+- EMA filter (alpha 0.4, about 50 ms of lag at 20 fps; One Euro filter if lag or jitter is a problem); goals at
+  10 Hz with `time_from_start` 0.1 s; no hand for more than 0.5 s → stop sending goals, the controller holds
+  the last one.
 
 Arm (stage 2):
 
@@ -80,6 +88,8 @@ Arm (stage 2):
 ## Consequences
 
 - No depth estimation and no calibration template: one camera is enough for stages 1–2.
-- Holding the forearm across the body tires the shoulder (resting the elbow on the desk helps); the spike
-  (ROB-19) can change the pose.
+- Holding the forearm across the body tires the shoulder (resting the elbow on the desk helps).
+- The simulated gripper lags about 1 s behind the goals: `gz_ros2_control` turns a position command into a
+  velocity with gain 0.1 × controller rate, and the upstream controllers run at 10 Hz. The EMA and the 10 Hz
+  goals add about 0.2 s.
 - The planar IK stays as the explained baseline even when full 3D is added.
