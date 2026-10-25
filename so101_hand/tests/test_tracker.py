@@ -5,7 +5,7 @@ import pytest
 
 pytest.importorskip("mediapipe")  # optional dependency: pip install -e ".[tracker]"
 
-from so101_hand.tracker import DEFAULT_MODEL, HandTracker, to_pixels  # noqa: E402
+from so101_hand.tracker import DEFAULT_MODEL, HandTracker, to_pixels, to_world  # noqa: E402
 
 needs_model = pytest.mark.skipif(not DEFAULT_MODEL.is_file(), reason=f"model not found: {DEFAULT_MODEL}")
 BLACK = np.zeros((480, 640, 3), np.uint8)
@@ -17,6 +17,13 @@ def test_normalised_landmarks_are_scaled_to_pixels():
     pixels = to_pixels(landmarks, width=640, height=480)
     assert pixels.shape == (21, 2)
     assert pixels[0] == pytest.approx([320.0, 120.0])
+
+
+def test_world_landmarks_keep_metres_and_depth():
+    landmarks = [SimpleNamespace(x=0.01, y=-0.02, z=0.03)] * 21
+    world = to_world(landmarks)
+    assert world.shape == (21, 3)
+    assert world[0] == pytest.approx([0.01, -0.02, 0.03])
 
 
 def test_missing_model_gives_a_clear_error(tmp_path):
