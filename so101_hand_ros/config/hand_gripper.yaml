@@ -7,10 +7,10 @@ hand_gripper:
     preview: true         # window with the measured hand; keys c / o (calibration) and q (quit)
 
     # Aperture (thumb-index gap / palm length) of the closed and the open hand. Press c / o in the preview to
-    # measure yours; the node prints the values to paste here. Defaults: inside the ROB-19 spike values
-    # (side view: closed 0.13, open 1.7-2.2), so both ends are reached.
-    aperture_closed: 0.2
-    aperture_open: 1.6
+    # measure yours; the node prints the values to paste here. These: my hand, calibrated on 2026-10-25.
+    # Values that worked without calibrating: 0.2 and 1.6, inside the ROB-19 spike range (closed 0.13, open 1.7-2.2).
+    aperture_closed: 0.11
+    aperture_open: 2.28
 
     ema_alpha: 0.4        # smoothing: 1.0 = none; 0.4 lags about 50 ms at 20 fps (ROB-19 recording)
     hold_s: 0.5           # hand lost for longer: no more goals, the gripper stays where it is

@@ -86,6 +86,11 @@ python src/so101_lerobot/lerobot_teleop/run_teleop.py
 
 ## Hand → gripper (stage 1)
 
+![Webcam preview with the measured thumb–index gap (left) and the gripper in Gazebo (right)](docs/media/hand_gripper.gif)
+
+The hand is lost for a moment and the gripper waits; then it opens and closes with the hand, about 1 s behind
+(see the last note below).
+
 Close your hand to close the simulated gripper, open it to open the gripper. The pose: right forearm held across
 the body, seen from the side by the webcam (ADR 0003); any view where the camera sees the thumb and the index
 finger works.
