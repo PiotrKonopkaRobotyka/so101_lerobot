@@ -1,0 +1,18 @@
+# Parameters of the hand_gripper node. Floats need a decimal point: ROS 2 rejects 10 for a float parameter.
+hand_gripper:
+  ros__parameters:
+    model_path: ""        # empty: $DATA_DIR/models/hand_landmarker.task (default ~/data/models)
+    camera_index: 0       # /dev/video0
+    video_path: ""        # a video file instead of the webcam, e.g. to test without a camera
+    preview: true         # window with the measured hand; keys c / o (calibration) and q (quit)
+
+    # Aperture (thumb-index gap / palm length) of the closed and the open hand. Press c / o in the preview to
+    # measure yours; the node prints the values to paste here. These: my hand, calibrated on 2026-10-25.
+    # Values that worked without calibrating: 0.2 and 1.6, inside the ROB-19 spike range (closed 0.13, open 1.7-2.2).
+    aperture_closed: 0.11
+    aperture_open: 2.28
+
+    ema_alpha: 0.4        # smoothing: 1.0 = none; 0.4 lags about 50 ms at 20 fps (ROB-19 recording)
+    hold_s: 0.5           # hand lost for longer: no more goals, the gripper stays where it is
+    rate_hz: 10.0         # goals per second; the gripper controller runs at 10 Hz
+    move_time_s: 0.1      # time_from_start of each goal

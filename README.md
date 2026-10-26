@@ -2,8 +2,11 @@
 
 Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation only for now:
 
-- `lerobot_mimic/` — the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
+- `so101_bringup/` — Gazebo, controllers, MoveIt and RViz with one command.
+- `so101_hand/`, `so101_hand_ros/` — close your hand to close the simulated gripper: hand tracking from the webcam
+  (MediaPipe) as a plain Python package with `pytest` tests, and a thin ROS 2 node.
 - `lerobot_teleop/run_teleop.py` — keyboard teleoperation of the simulated arm through LeRobot.
+- `lerobot_mimic/` — legacy: the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
 
 ## Workspace
 
@@ -36,12 +39,22 @@ touch .venv/COLCON_IGNORE
                       -r src/so101_lerobot/requirements.txt \
                       -c src/so101_lerobot/constraints.txt
 .venv/bin/pip install --no-deps -e src/lerobot-ros/lerobot_robot_ros \
-                                -e src/lerobot-ros/lerobot_teleoperator_devices
+                                -e src/lerobot-ros/lerobot_teleoperator_devices \
+                                -e src/so101_lerobot/so101_hand
+```
+
+The hand node needs the MediaPipe Hand Landmarker model (7.8 MB, Apache-2.0) in `$DATA_DIR/models`:
+
+```bash
+mkdir -p ~/data/models
+curl -L -o ~/data/models/hand_landmarker.task \
+  https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task
 ```
 
 - `requirements.txt` — direct dependencies of these scripts.
 - `requirements-lock.txt` — full pinned set (LeRobot, torch CUDA 12.8, …) without ROS packages.
-- `constraints.txt` — keeps `opencv-python` at a version compatible with ROS 2 Jazzy.
+- `constraints.txt` — keeps `opencv-python` and `opencv-contrib-python` (pulled in by MediaPipe) at a version
+  compatible with ROS 2 Jazzy.
 - `setuptools<80` is required by colcon.
 
 ## Build and run
@@ -71,4 +84,38 @@ Keyboard teleoperation (simulation running, venv active):
 python src/so101_lerobot/lerobot_teleop/run_teleop.py
 ```
 
-Model weights are read from `$DATA_DIR/models` (default `~/data/models`), e.g. `yolo26m-pose.pt`.
+## Hand → gripper (stage 1)
+
+![Webcam preview with the measured thumb–index gap (left) and the gripper in Gazebo (right)](docs/media/hand_gripper.gif)
+
+The hand is lost for a moment and the gripper waits; then it opens and closes with the hand, about 1 s behind
+(see the last note below).
+
+Close your hand to close the simulated gripper, open it to open the gripper. The pose: right forearm held across
+the body, seen from the side by the webcam (ADR 0003); any view where the camera sees the thumb and the index
+finger works.
+
+```bash
+ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true
+```
+
+Gazebo starts first; the hand node and its preview window start once the controllers are active. The preview is
+mirrored: the red line is the thumb–index gap, the white one the palm length it is divided by.
+
+- Calibration: hold the closed hand still for a second and press `c`, then the open hand and `o`. The node prints
+  `aperture_closed` and `aperture_open`; to keep them, put them in `so101_hand_ros/config/hand_gripper.yaml`
+  (installed as a symlink, no rebuild needed). `q` closes the node; Gazebo keeps running.
+- Hand lost for more than `hold_s` (0.5 s): the node stops sending goals and the gripper stays where it is.
+- Goals never leave the joint range: a goal beyond the URDF limit would leave the simulated jaw stuck.
+- Without a webcam, a recorded video is replayed in real time:
+  `ros2 run so101_hand_ros hand_gripper --ros-args -p video_path:=<file> -p preview:=false`.
+- The simulated gripper follows the goals with a lag of about 1 s: `gz_ros2_control` turns a position command
+  into a velocity with gain 0.1 × controller rate, and the upstream controllers run at 10 Hz.
+
+Tests of the hand logic, no ROS or camera needed (venv active, in `so101_ws`):
+
+```bash
+python -m pytest src/so101_lerobot/so101_hand
+```
+
+Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `hand_landmarker.task`, `yolo26m-pose.pt`.

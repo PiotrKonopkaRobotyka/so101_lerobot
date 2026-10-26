@@ -3,7 +3,7 @@
 <package format="3">
   <name>so101_bringup</name>
   <version>0.1.0</version>
-  <description>Single-command bringup of the simulated SO-101 arm: Gazebo, ros2_control controllers, MoveIt and RViz.</description>
+  <description>Single-command bringup of the simulated SO-101 arm: Gazebo, ros2_control controllers, MoveIt and RViz, optionally the hand-tracking gripper node.</description>
   <maintainer email="piotr.konopka.robotyka@gmail.com">Piotr Konopka</maintainer>
   <license>TODO: License declaration</license>
 
@@ -15,6 +15,7 @@
   <exec_depend>lerobot_controller</exec_depend>
   <exec_depend>lerobot_description</exec_depend>
   <exec_depend>lerobot_moveit</exec_depend>
+  <exec_depend>so101_hand_ros</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

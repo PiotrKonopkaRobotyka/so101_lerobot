@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "so101_hand"
+version = "0.1.0"
+description = "Hand tracking to SO-101 gripper commands: plain Python, no ROS"
+requires-python = ">=3.10"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+tracker = ["mediapipe"]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["so101_hand"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,2 +1,4 @@
 # Python dependencies of the so101_lerobot scripts (everything else comes from ROS 2 Jazzy via rosdep)
 ultralytics==8.4.22
+mediapipe==1.1.0
+matplotlib>=3.8
