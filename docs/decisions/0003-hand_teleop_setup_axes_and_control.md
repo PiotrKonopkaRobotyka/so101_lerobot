@@ -89,7 +89,7 @@ Arm (stage 2):
 
 - No depth estimation and no calibration template: one camera is enough for stages 1–2.
 - Holding the forearm across the body tires the shoulder (resting the elbow on the desk helps).
-- The simulated gripper lags about 1 s behind the goals: `gz_ros2_control` turns a position command into a
-  velocity with gain 0.1 × controller rate, and the upstream controllers run at 10 Hz. The EMA and the 10 Hz
-  goals add about 0.2 s.
+- With the upstream controllers (10 Hz) the simulated gripper lagged about 1 s behind the goals; with our
+  configuration (ADR 0004) the whole chain from the hand to the jaw lags about 0.3 s, of which the EMA and the
+  10 Hz goals are about 0.1 s.
 - The planar IK stays as the explained baseline even when full 3D is added.

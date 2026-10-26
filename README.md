@@ -75,6 +75,9 @@ MoveIt and RViz start after the controller spawner has exited. For debugging, th
 started separately, in this order: `lerobot_description so101_gazebo.launch.py`,
 `lerobot_controller so101_controller.launch.py`, `lerobot_moveit so101_moveit.launch.py`.
 
+The simulated robot is the upstream one with our controller configuration (`so101_bringup/config`, 100 Hz instead
+of 10 Hz, ADR 0004): a joint reaches a goal in about 0.3 s instead of about 2 s.
+
 The arm has 5 joints, so the RViz interactive marker (a full 6-DoF pose for KDL IK) rarely finds a solution:
 set the goal with "Goal State" or tick "Approx IK Solutions" in the Planning tab.
 
@@ -88,8 +91,8 @@ python src/so101_lerobot/lerobot_teleop/run_teleop.py
 
 ![Webcam preview with the measured thumb–index gap (left) and the gripper in Gazebo (right)](docs/media/hand_gripper.gif)
 
-The hand is lost for a moment and the gripper waits; then it opens and closes with the hand, about 1 s behind
-(see the last note below).
+The hand is lost for a moment and the gripper waits; then it opens and closes with the hand. Recorded with the
+upstream controller configuration, so the gripper is about 1 s behind; now it is about 0.3 s (ADR 0004).
 
 Close your hand to close the simulated gripper, open it to open the gripper. The pose: right forearm held across
 the body, seen from the side by the webcam (ADR 0003); any view where the camera sees the thumb and the index
@@ -109,8 +112,6 @@ mirrored: the red line is the thumb–index gap, the white one the palm length i
 - Goals never leave the joint range: a goal beyond the URDF limit would leave the simulated jaw stuck.
 - Without a webcam, a recorded video is replayed in real time:
   `ros2 run so101_hand_ros hand_gripper --ros-args -p video_path:=<file> -p preview:=false`.
-- The simulated gripper follows the goals with a lag of about 1 s: `gz_ros2_control` turns a position command
-  into a velocity with gain 0.1 × controller rate, and the upstream controllers run at 10 Hz.
 
 Tests of the hand logic, no ROS or camera needed (venv active, in `so101_ws`):
 

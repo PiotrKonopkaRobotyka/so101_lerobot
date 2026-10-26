@@ -4,7 +4,9 @@ All ROS nodes, including those from the included launch files, use the Gazebo
 clock (use_sim_time); the upstream RViz node does not set it on its own.
 
 Startup order:
-1. Gazebo with the robot, robot_state_publisher and the /clock bridge.
+1. Gazebo with the robot, robot_state_publisher and the /clock bridge. The robot is
+   urdf/so101_sim.urdf.xacro: the upstream one with our controller configuration
+   (config/so101_controllers.yaml, 100 Hz instead of 10 Hz; ADR 0004).
 2. Controller spawner: waits for the controller_manager that runs inside Gazebo
    (gz_ros2_control plugin), activates the controllers and exits.
 3. Only after the spawner has exited, so the trajectory controllers are active:
@@ -28,7 +30,10 @@ def generate_launch_description():
     gazebo = IncludeLaunchDescription(
         PathJoinSubstitution(
             [FindPackageShare("lerobot_description"), "launch", "so101_gazebo.launch.py"]
-        )
+        ),
+        launch_arguments={
+            "model": PathJoinSubstitution([FindPackageShare("so101_bringup"), "urdf", "so101_sim.urdf.xacro"])
+        }.items(),
     )
 
     controller_spawner = Node(
