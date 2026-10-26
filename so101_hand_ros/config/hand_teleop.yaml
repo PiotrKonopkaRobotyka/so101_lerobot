@@ -18,7 +18,8 @@ hand_teleop:
     move_time_s: 0.1      # time_from_start of each goal
 
     # Stage 2: the arm follows the hand while the clutch is engaged (space in the preview, or the ~/clutch service)
-    arm: false            # true: also move the arm (launch argument arm:=true); it first goes to the home pose
+    # arm (default false): set by the launch argument arm:=true; the arm first goes to the home pose. Not set here:
+    # launch passes it under /**, and a value under hand_teleop in this file would override it.
     gain: 1.0             # TCP metres per hand metre (the image scale comes from MediaPipe's world landmarks)
     max_step_m: 0.02      # largest TCP step per camera frame (0.4 m/s at 20 fps)
     bounds_reach: [0.10, 0.40]    # metres forward from the base where TCP targets may go
