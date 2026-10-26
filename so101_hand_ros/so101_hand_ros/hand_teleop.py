@@ -1,7 +1,8 @@
 """ROS 2 node: the operator's hand seen by the webcam → goals for the simulated SO-101 (ADR 0003).
 
 Stage 1: the hand's openness drives the gripper. Stage 2 (parameter `arm`): while the clutch is engaged, moving
-the hand moves the gripper in the arm's plane (so101_hand.teleop), through our planar IK (so101_hand.kinematics).
+the hand moves the gripper in the arm's plane and tilting it tilts the jaws (so101_hand.teleop), through our planar
+IK (so101_hand.kinematics).
 The logic lives in the so101_hand package (plain Python, tested with pytest). This node only reads frames with
 OpenCV (not cv_bridge: it is built for numpy 1.x), shows the preview and publishes the goals.
 
@@ -28,7 +29,7 @@ from so101_hand.calibration import Calibration
 from so101_hand.filters import HoldingEma
 from so101_hand.gripper import openness_to_joint
 from so101_hand.kinematics import TCP_IN_GRIPPER, Pose, forward, inverse, solutions
-from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture, metres_per_pixel
+from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture, hand_pitch, metres_per_pixel
 from so101_hand.teleop import Bounds, Clutch
 from so101_hand.tracker import DEFAULT_MODEL, HandTracker
 
@@ -59,15 +60,19 @@ class HandTeleopNode(Node):
         hold_s = self.declare_parameter("hold_s", 0.5).value
         self.filter = HoldingEma(alpha=alpha, hold_s=hold_s)
         self.wrist_filters = (HoldingEma(alpha=alpha, hold_s=hold_s), HoldingEma(alpha=alpha, hold_s=hold_s))
+        self.pitch_filter = HoldingEma(alpha=alpha, hold_s=hold_s)
         self.arm = self.declare_parameter("arm", False).value
         self.clutch = Clutch(
             gain=self.declare_parameter("gain", 1.0).value,
             bounds=Bounds(
                 reach=tuple(self.declare_parameter("bounds_reach", [0.10, 0.40]).value),
                 height=tuple(self.declare_parameter("bounds_height", [0.02, 0.40]).value),
+                pitch=tuple(self.declare_parameter("bounds_pitch", [-math.pi / 2, math.pi / 6]).value),
             ),
             max_step_m=self.declare_parameter("max_step_m", 0.02).value,
             reachable=lambda pose: bool(solutions(pose)),
+            pitch_gain=self.declare_parameter("pitch_gain", 1.0).value,
+            max_step_rad=self.declare_parameter("max_step_rad", 0.05).value,
         )
 
         self.tracker = HandTracker(model_path)
@@ -135,11 +140,16 @@ class HandTeleopNode(Node):
     # --- stage 2: the arm ---
 
     def arm_target(self, t_s: float) -> Pose | None:
-        """The clutch's TCP target for the smoothed wrist position, or None (released, hand lost)."""
+        """The clutch's TCP target for the smoothed wrist position and hand pitch, or None (released, hand lost)."""
         wrist = None if self.hand is None else self.hand.image[WRIST]
         u = self.wrist_filters[0].update(t_s, None if wrist is None else float(wrist[0]))
         v = self.wrist_filters[1].update(t_s, None if wrist is None else float(wrist[1]))
-        return self.clutch.update(None if u is None or v is None else (u, v))
+        pitch = None if self.hand is None else hand_pitch(self.hand.image)
+        if pitch is not None and self.pitch_filter.value is not None:
+            # next to the smoothed value, so the EMA never averages +179° and -179° into 0°
+            pitch = self.pitch_filter.value + math.remainder(pitch - self.pitch_filter.value, math.tau)
+        pitch = self.pitch_filter.update(t_s, pitch)
+        return self.clutch.update(None if u is None or v is None else (u, v), hand_pitch=pitch)
 
     def send_arm(self, target: Pose, move_time) -> None:
         q = inverse(target, current=self.current_arm() or (0.0, 0.0, 0.0))
@@ -167,9 +177,10 @@ class HandTeleopNode(Node):
         q = self.current_arm()
         if self.hand is None or q is None:
             return "no hand in view" if self.hand is None else "no joint states yet"
-        # the smoothed wrist, as in arm_target(): with the raw one the first target would jump by the filter's lag
+        # the smoothed wrist and pitch, as in arm_target(): raw ones would make the first target jump by the filter's lag
         wrist = (self.wrist_filters[0].value, self.wrist_filters[1].value)
-        self.clutch.engage(wrist, metres_per_px=metres_per_pixel(self.hand.image, self.hand.world), tcp=forward(*q))
+        scale = metres_per_pixel(self.hand.image, self.hand.world)
+        self.clutch.engage(wrist, metres_per_px=scale, tcp=forward(*q), hand_pitch=self.pitch_filter.value)
         return None
 
     def on_joint_states(self, msg: JointState) -> None:
@@ -204,7 +215,7 @@ class HandTeleopNode(Node):
         if self.hand is not None:
             lm = self.hand.image
             p = {i: (int(lm[i][0]), int(lm[i][1])) for i in (WRIST, THUMB_TIP, INDEX_TIP, MIDDLE_MCP)}
-            cv2.line(frame, p[WRIST], p[MIDDLE_MCP], (255, 255, 255), 2)  # palm length: the unit of the aperture
+            cv2.line(frame, p[WRIST], p[MIDDLE_MCP], (255, 255, 255), 2)  # palm line: aperture unit and hand pitch
             cv2.line(frame, p[THUMB_TIP], p[INDEX_TIP], (0, 0, 255), 3)  # the measured gap
             if self.arm:
                 cv2.circle(frame, p[WRIST], 8, (0, 255, 0) if self.clutch.engaged else (128, 128, 128), -1)
@@ -216,9 +227,14 @@ class HandTeleopNode(Node):
         ]
         if self.arm:
             state = "ENGAGED" if self.clutch.engaged else "released"
-            where = f": TCP {100 * target.reach:.0f} cm forward, {100 * target.height:.0f} cm up" if target else ""
+            where = (
+                f": TCP {100 * target.reach:.0f} cm forward, {100 * target.height:.0f} cm up, "
+                f"jaws {math.degrees(target.pitch):.0f} deg"  # OpenCV's fonts have no degree sign
+                if target
+                else ""
+            )
             lines.append(f"arm {state}{where}")
-            lines.append("c / o = closed / open hand, space = clutch, h = home, q = quit")
+            lines.append("c / o = calibrate, space = clutch, h = home, q = quit")  # longer lines are cut at 640 px
         else:
             lines.append("c = closed hand, o = open hand (hold 1 s first), q = quit")
         for i, text in enumerate(lines):
