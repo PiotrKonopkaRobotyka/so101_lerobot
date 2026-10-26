@@ -11,10 +11,11 @@ Startup order:
    (gz_ros2_control plugin), activates the controllers and exits.
 3. Only after the spawner has exited, so the trajectory controllers are active:
    MoveIt (move_group) and RViz (argument moveit, default true) and the
-   hand-tracking gripper node with the webcam (argument hand, default false).
+   hand teleoperation node with the webcam (argument hand, default false).
 
-Hand teleoperation of the gripper (stage 1) without MoveIt:
+Hand teleoperation without MoveIt, the gripper only (stage 1) or also the arm (stage 2):
     ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true
+    ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true arm:=true
 """
 
 from launch import LaunchDescription
@@ -23,6 +24,7 @@ from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node, SetParameter
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -57,9 +59,10 @@ def generate_launch_description():
 
     hand = Node(
         package="so101_hand_ros",
-        executable="hand_gripper",
+        executable="hand_teleop",
         parameters=[
-            PathJoinSubstitution([FindPackageShare("so101_hand_ros"), "config", "hand_gripper.yaml"])
+            PathJoinSubstitution([FindPackageShare("so101_hand_ros"), "config", "hand_teleop.yaml"]),
+            {"arm": ParameterValue(LaunchConfiguration("arm"), value_type=bool)},
         ],
         output="screen",
         condition=IfCondition(LaunchConfiguration("hand")),
@@ -73,7 +76,10 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("moveit", default_value="true", description="Start MoveIt and RViz"),
             DeclareLaunchArgument(
-                "hand", default_value="false", description="Start the hand-tracking gripper node (webcam)"
+                "hand", default_value="false", description="Start the hand teleoperation node (webcam)"
+            ),
+            DeclareLaunchArgument(
+                "arm", default_value="false", description="With hand:=true, the hand also moves the arm (stage 2)"
             ),
             SetParameter(name="use_sim_time", value=True),
             gazebo,

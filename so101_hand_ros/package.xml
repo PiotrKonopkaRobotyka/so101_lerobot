@@ -3,11 +3,15 @@
 <package format="3">
   <name>so101_hand_ros</name>
   <version>0.1.0</version>
-  <description>ROS 2 node that drives the simulated SO-101 gripper with the operator's hand seen by the webcam.</description>
+  <description>ROS 2 node that drives the simulated SO-101 gripper and arm with the operator's hand seen by the webcam.</description>
   <maintainer email="piotr.konopka.robotyka@gmail.com">Piotr Konopka</maintainer>
   <license>TODO: License declaration</license>
 
+  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>trajectory_msgs</exec_depend>
   <!-- so101_hand (the logic), MediaPipe and OpenCV come from the workspace venv (pip), not from rosdep -->
 

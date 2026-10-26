@@ -1,0 +1,26 @@
+# Parameters of the hand_teleop node. Floats need a decimal point: ROS 2 rejects 10 for a float parameter.
+hand_teleop:
+  ros__parameters:
+    model_path: ""        # empty: $DATA_DIR/models/hand_landmarker.task (default ~/data/models)
+    camera_index: 0       # /dev/video0
+    video_path: ""        # a video file instead of the webcam, e.g. to test without a camera
+    preview: true         # window with the measured hand and the keys
+
+    # Aperture (thumb-index gap / palm length) of the closed and the open hand. Press c / o in the preview to
+    # measure yours; the node prints the values to paste here. These: my hand, calibrated on 2026-10-25.
+    # Values that worked without calibrating: 0.2 and 1.6, inside the ROB-19 spike range (closed 0.13, open 1.7-2.2).
+    aperture_closed: 0.11
+    aperture_open: 2.28
+
+    ema_alpha: 0.4        # smoothing of the openness and the wrist: 1.0 = none; 0.4 lags about 50 ms at 20 fps
+    hold_s: 0.5           # hand lost for longer: no more goals, the gripper and the arm stay where they are
+    rate_hz: 10.0         # goals per second
+    move_time_s: 0.1      # time_from_start of each goal
+
+    # Stage 2: the arm follows the hand while the clutch is engaged (space in the preview, or the ~/clutch service)
+    # arm (default false): set by the launch argument arm:=true; the arm first goes to the home pose. Not set here:
+    # launch passes it under /**, and a value under hand_teleop in this file would override it.
+    gain: 1.0             # TCP metres per hand metre (the image scale comes from MediaPipe's world landmarks)
+    max_step_m: 0.02      # largest TCP step per camera frame (0.4 m/s at 20 fps)
+    bounds_reach: [0.10, 0.40]    # metres forward from the base where TCP targets may go
+    bounds_height: [0.02, 0.40]   # metres up; 0.02 keeps the jaws off the floor

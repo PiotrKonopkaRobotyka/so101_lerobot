@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture
+from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture, metres_per_pixel
 
 
 def make_hand(thumb_tip, index_tip, wrist=(0.0, 0.0), middle_mcp=(0.0, -100.0)):
@@ -52,3 +52,28 @@ def test_zero_palm_length_is_rejected():
     hand = make_hand(thumb_tip=(0.0, -150.0), index_tip=(50.0, -150.0), middle_mcp=(0.0, 0.0))
     with pytest.raises(ValueError):
         aperture(hand)
+
+
+def make_world_hand(palm_m):
+    """21 world landmarks in metres: the middle-finger MCP `palm_m` above the wrist, the rest at the wrist."""
+    world = np.zeros((21, 3))
+    world[MIDDLE_MCP] = (0.0, -palm_m, 0.0)
+    return world
+
+
+def test_scale_is_palm_length_in_metres_over_pixels():
+    # palm 0.09 m in the world, 100 px in the image -> 0.9 mm per pixel at the hand's depth
+    image = make_hand(thumb_tip=(0.0, -150.0), index_tip=(50.0, -150.0))
+    assert metres_per_pixel(image, make_world_hand(0.09)) == pytest.approx(0.0009)
+
+
+def test_hand_twice_as_far_has_twice_the_scale():
+    near = make_hand(thumb_tip=(0.0, -150.0), index_tip=(50.0, -150.0))
+    world = make_world_hand(0.09)
+    assert metres_per_pixel(near * 0.5, world) == pytest.approx(2 * metres_per_pixel(near, world))
+
+
+def test_scale_with_zero_palm_in_the_image_is_rejected():
+    image = make_hand(thumb_tip=(0.0, -150.0), index_tip=(50.0, -150.0), middle_mcp=(0.0, 0.0))
+    with pytest.raises(ValueError):
+        metres_per_pixel(image, make_world_hand(0.09))

@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import NamedTuple
 
 import cv2
 import mediapipe as mp
@@ -10,8 +11,13 @@ import numpy as np
 DEFAULT_MODEL = Path(os.environ.get("DATA_DIR", "~/data")).expanduser() / "models" / "hand_landmarker.task"
 
 
+class Hand(NamedTuple):
+    image: np.ndarray  # (21, 2): x and y in pixels of the raw frame
+    world: np.ndarray  # (21, 3): metres, origin near the hand's centre (MediaPipe "world landmarks")
+
+
 class HandTracker:
-    """Image landmarks of one hand per frame, in pixels of the raw (not mirrored) frame.
+    """Landmarks of one hand per frame: in pixels of the raw (not mirrored) frame and in metres.
 
     VIDEO mode: the hand is tracked from frame to frame and the slower palm detector runs only when the track is lost.
     Handedness is ignored: in the side view it flickers between "Left" and "Right" (ROB-19).
@@ -30,8 +36,8 @@ class HandTracker:
         self._landmarker = vision.HandLandmarker.create_from_options(options)
         self._last_ms = -1
 
-    def detect(self, frame_bgr: np.ndarray, t_s: float) -> np.ndarray | None:
-        """21 landmarks with x and y in pixels, shape (21, 2), or None without a hand. `t_s`: frame time in seconds."""
+    def detect(self, frame_bgr: np.ndarray, t_s: float) -> Hand | None:
+        """The hand's 21 landmarks, or None without a hand. `t_s`: frame time in seconds."""
         t_ms = max(int(t_s * 1000), self._last_ms + 1)  # VIDEO mode needs strictly increasing timestamps
         self._last_ms = t_ms
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
@@ -39,7 +45,7 @@ class HandTracker:
         if not result.hand_landmarks:
             return None
         height, width = frame_bgr.shape[:2]
-        return to_pixels(result.hand_landmarks[0], width, height)
+        return Hand(to_pixels(result.hand_landmarks[0], width, height), to_world(result.hand_world_landmarks[0]))
 
     def close(self) -> None:
         self._landmarker.close()
@@ -54,3 +60,8 @@ class HandTracker:
 def to_pixels(landmarks, width: int, height: int) -> np.ndarray:
     """MediaPipe's normalised landmarks (x, y as fractions of the image width and height) to pixels."""
     return np.array([(p.x * width, p.y * height) for p in landmarks])
+
+
+def to_world(landmarks) -> np.ndarray:
+    """MediaPipe's world landmarks (already in metres) as an array."""
+    return np.array([(p.x, p.y, p.z) for p in landmarks])
