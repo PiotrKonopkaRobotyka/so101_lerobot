@@ -59,8 +59,9 @@ in Gazebo — M1 hand → gripper, M2 hand → arm in the XZ plane; data collect
   controllers they arrived up to 3 s later. Check `/joint_states`, not only the result (ADR 0004).
 - The RViz marker rarely moves the 5-joint arm (KDL solves the full 6D pose): use Goal State or "Approx IK Solutions".
 - The third-party RViz node has no `use_sim_time`; `sim.launch.py` sets it for every node.
+- A YAML value under the node name beats a launch dict parameter (written under `/**`): keep `arm` out of the YAML.
 
 ## Current milestone
 
-M2 Hand → arm (ROB-28): kinematics, clutch and node done and checked in headless Gazebo with a video; next the
-webcam test with my hand. Stage 1 (ROB-27) works with the webcam; joints follow goals in ~0.3 s (ROB-30).
+M2 Hand → arm (ROB-28): done and checked with the webcam and my hand (2026-10-26, GIF in README); next its PR
+after #3 (ROB-27) and #4 (ROB-30) are merged, then ROB-31 (wrist flex follows the hand pitch).

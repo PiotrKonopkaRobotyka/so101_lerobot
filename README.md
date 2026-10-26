@@ -116,6 +116,11 @@ mirrored: the red line is the thumb–index gap, the white one the palm length i
 
 ## Hand → arm (stage 2)
 
+![Webcam preview with the clutch dot on the wrist (left) and the arm in Gazebo (right)](docs/media/hand_arm.gif)
+
+`space` engages the clutch and the wrist dot turns from grey to green; then the gripper follows the hand forward,
+down and back. Real time, with our controller configuration (ADR 0004).
+
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true arm:=true
 ```
@@ -129,6 +134,9 @@ up, jaws 45° down). Then:
   the screen like your hand in the mirrored preview. `space` again releases the clutch and the arm stops, so you
   can move your hand to a comfortable place and engage again, like lifting a mouse.
 - `h` releases the clutch and sends the arm home.
+- Hand lost while the clutch is engaged: the arm stays, and so does the clutch. When the hand comes back somewhere
+  else, the gripper goes to the matching place at up to `max_step_m` per frame (about 0.4 m/s); release the clutch
+  first if you do not want that.
 - The scale comes from MediaPipe (palm length in metres / in pixels), so the gripper moves as far as your hand
   (`gain` 1.0). Targets stay in the box `bounds_reach` × `bounds_height`, move at most `max_step_m` (2 cm) per
   frame and skip poses the arm cannot reach.
