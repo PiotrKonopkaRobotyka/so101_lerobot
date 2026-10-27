@@ -161,3 +161,20 @@ GitHub Actions runs these tests on every pull request and push to `main` (`.gith
 without ROS or MediaPipe: the tracker tests are skipped there.
 
 Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `hand_landmarker.task`, `yolo26m-pose.pt`.
+
+## Limitations
+
+Limits of the method, known by design (ADR 0003, ADR 0005):
+
+- One webcam, depth from one camera: the hand is measured well across the image and poorly along the camera's axis.
+  In the side view the image plane is the arm's plane, so the arm moves only in that plane. The base (joint 1) will
+  turn with the hand's depth if a spike finds it precise enough (ROB-34), otherwise with keys. The scale is taken
+  when the clutch engages, so moving the hand nearer or farther changes the gain until the next engage.
+- Side view: holding the forearm across the body tires the shoulder (rest the elbow on the desk), and with the palm
+  down the camera can lose the thumb and the index finger (ROB-19: open told from closed in 98.8–99.5% of frames).
+- The arm moves only with the clutch: the control is relative, like a mouse. The arm follows the hand only while
+  the clutch is engaged, and the clutch is a key (`space`) or a service call, not a gesture.
+- No wrist roll: joint 5 stays at 0, so the jaws tilt with the hand but do not roll.
+- Grasping only in MuJoCo, not in Gazebo: the Gazebo stages move the gripper and the arm with no objects to pick.
+  Picking a block and recording demonstrations for training are planned in MuJoCo (ADR 0005).
+- Simulation only: no real SO-101 has been driven yet.

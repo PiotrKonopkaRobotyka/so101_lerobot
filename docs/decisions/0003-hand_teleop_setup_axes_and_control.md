@@ -100,7 +100,7 @@ Arm (stage 2):
 - MoveIt Servo: real-time, but ROS-only; it would not carry over to MuJoCo.
 - LeRobot `RobotKinematics` (placo) now: a new dependency, a different URDF (`gripper_frame_link`, named
   joints) and degrees. Evaluated later for full 3D in ROB-29, next to the planar IK and behind the same
-  interface (end-effector pose → joints), selected by a parameter.
+  interface (end-effector pose → joints), selected by a parameter. Dropped in ADR 0005 (ROB-29 canceled).
 
 ## Consequences
 
