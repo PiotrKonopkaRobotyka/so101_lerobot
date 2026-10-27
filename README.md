@@ -130,16 +130,23 @@ up, jaws 45° down). Then:
 
 - `space` engages the clutch: the node latches where your wrist is in the image and where the gripper is. While
   engaged, the gripper moves like your hand (ADR 0003): stretching the arm, i.e. the hand to your left → forward,
-  hand up → up; the jaws keep their angle. Look at the robot in Gazebo from its left side, and the gripper moves on
-  the screen like your hand in the mirrored preview. `space` again releases the clutch and the arm stops, so you
-  can move your hand to a comfortable place and engage again, like lifting a mouse.
+  hand up → up, and the jaws tilt with your hand (below). Look at the robot in Gazebo from its left side, and the
+  gripper moves on the screen like your hand in the mirrored preview. `space` again releases the clutch and the
+  arm stops, so you can move your hand to a comfortable place and engage again, like lifting a mouse.
+- Tilting the hand tilts the jaws (ROB-31): turn the white palm line in the preview (wrist → middle-finger
+  knuckle) 20° down and the jaws turn 20° down (`pitch_gain` 1.0; 0.0 keeps the angle they had at engage). The
+  jaws stay between −90° (straight down) and +30° (`bounds_pitch`), turn at most `max_step_rad` (about 3°) per
+  frame, and the preview shows their angle.
 - `h` releases the clutch and sends the arm home.
 - Hand lost while the clutch is engaged: the arm stays, and so does the clutch. When the hand comes back somewhere
   else, the gripper goes to the matching place at up to `max_step_m` per frame (about 0.4 m/s); release the clutch
   first if you do not want that.
 - The scale comes from MediaPipe (palm length in metres / in pixels), so the gripper moves as far as your hand
   (`gain` 1.0). Targets stay in the box `bounds_reach` × `bounds_height`, move at most `max_step_m` (2 cm) per
-  frame and skip poses the arm cannot reach.
+  frame and skip poses the arm cannot reach; when only the new jaw angle is out of reach, the gripper still
+  moves and the jaws wait.
+- The scale is taken when the clutch engages: rest the elbow on the desk in a marked spot, so the hand keeps its
+  distance to the camera, and engage again after moving the elbow.
 - The arm moves in its vertical plane: joints 1 (pan) and 5 (wrist roll) stay at 0, and our planar IK
   (`so101_hand/kinematics.py`) turns the target into joints 2–4. The TF frame `tcp` shows the point between the jaws.
 - Without the keyboard: `ros2 service call /hand_teleop/clutch std_srvs/srv/SetBool "{data: true}"`.

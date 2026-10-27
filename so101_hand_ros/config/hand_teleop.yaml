@@ -24,3 +24,7 @@ hand_teleop:
     max_step_m: 0.02      # largest TCP step per camera frame (0.4 m/s at 20 fps)
     bounds_reach: [0.10, 0.40]    # metres forward from the base where TCP targets may go
     bounds_height: [0.02, 0.40]   # metres up; 0.02 keeps the jaws off the floor
+    # The jaws turn with the hand (ROB-31): the palm line (white in the preview) tilted down tilts the jaws down
+    pitch_gain: 1.0       # jaws' turn per hand turn; 0.0 keeps the jaws' pitch from engage, as before ROB-31
+    max_step_rad: 0.05    # largest change of the jaws' pitch per camera frame (about 60°/s at 20 fps)
+    bounds_pitch: [-1.57, 0.52]   # jaws' pitch in radians: -90° (straight down) to +30°

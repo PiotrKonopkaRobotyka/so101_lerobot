@@ -1,7 +1,7 @@
 # 0003. Hand teleoperation: camera setup, axes and control
 
-- Status: Accepted for the setup, the axes and the gripper (pose confirmed in ROB-19, gripper control in ROB-27);
-  the arm control stays proposed until ROB-28 (stage 2)
+- Status: Accepted: the setup and the axes (pose confirmed in ROB-19), the gripper (ROB-27), the arm (ROB-28) and
+  the jaws following the hand's pitch (ROB-31), each after a webcam test with my hand (the last on 2026-10-27)
 - Date: 2026-10-13
 
 ## Context
@@ -74,10 +74,15 @@ Arm (stage 2):
   since engage; releasing stops the robot (like LeRobot's `EEReferenceAndDelta` with a latched reference).
   Built in ROB-28 (`so101_hand/teleop.py`) with space toggling the clutch instead of a held key: the OpenCV
   window reports key presses, not held keys. The service `~/clutch` does the same without the keyboard. The
-  jaws keep the pitch they had at engage; the arm starts from a home pose (TCP 0.25 m forward, 0.15 m up,
-  jaws 45° down).
+  arm starts from a home pose (TCP 0.25 m forward, 0.15 m up, jaws 45° down).
+- The jaws turn with the hand (ROB-31): the hand's pitch is the angle of the palm line (wrist → middle-finger
+  MCP) in the image, with the same convention as the jaws' pitch; jaws' pitch = pitch at engage + `pitch_gain` ×
+  the hand's turn since engage (the short way across ±180°), smoothed with the same EMA. A pose out of reach is
+  tried with the old pitch (the gripper still moves), then at the old position (the jaws still turn).
+  `pitch_gain` 0 keeps the pitch from engage, as built in ROB-28.
 - Scale in metres per pixel at the hand's depth = palm length in world landmarks / palm length in pixels.
-- Workspace bounds in XZ and a maximum step per cycle (like LeRobot's `EEBoundsAndSafety`).
+- Workspace bounds in XZ, the jaws' pitch within −90°…+30° (the reachable range depends on the position:
+  −75°…+5° at the home position) and a maximum step per cycle (like LeRobot's `EEBoundsAndSafety`).
 - Own planar IK (`so101_hand/kinematics.py`): with the pan at 0 and a fixed wrist roll, shoulder lift, elbow
   flex and wrist flex form a planar 3R chain; target reach, height and pitch → wrist point → two-link solution
   (law of cosines) → wrist angle; of the two solutions (elbow up or down) the one closest to the current
