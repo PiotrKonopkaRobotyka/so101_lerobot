@@ -157,4 +157,7 @@ Tests of the hand logic, no ROS or camera needed (venv active, in `so101_ws`):
 python -m pytest src/so101_lerobot/so101_hand
 ```
 
+GitHub Actions runs these tests on every pull request and push to `main` (`.github/workflows/tests.yml`),
+without ROS or MediaPipe: the tracker tests are skipped there.
+
 Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `hand_landmarker.task`, `yolo26m-pose.pt`.

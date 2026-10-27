@@ -34,7 +34,8 @@ in Gazebo — M1 hand → gripper, M2 hand → arm in its vertical plane; data c
 - Build: only the `moveit_ws` underlay and the venv sourced, `python -m colcon build` in `so101_ws` (README).
 - Run: `so101_sim` or `so101_hand`; without aliases `ws so101` and `ros2 launch so101_bringup sim.launch.py`.
 - Check: `ros2 control list_controllers` shows 3 active controllers; Plan & Execute in RViz moves the arm.
-- Tests: `python -m pytest src/so101_lerobot/so101_hand` (venv, ~2 s, no ROS or camera).
+- Tests: `python -m pytest src/so101_lerobot/so101_hand` (venv, ~2 s, no ROS or camera); GitHub Actions runs them
+  on every PR and push to `main` (`.github/workflows/tests.yml`; no MediaPipe there: the tracker tests are skipped).
 - Scripted checks: no GUI (it crashes without OpenGL, also `offscreen`), but the upstream launch always opens it:
   include `ros_gz_sim` `gz_sim.launch.py` with `gz_args` `-s …` (plain `gz sim` misses the `gz_ros2_control` plugin
   path); own `ROS_DOMAIN_ID`, `GZ_PARTITION`; the node on a video (`-p video_path:=<file> -p preview:=false`);
