@@ -44,7 +44,7 @@ in Gazebo — M1 hand → gripper, M2 hand → arm in its vertical plane; data c
 
 - 0001 Hand teleoperation first, on Gazebo; MuJoCo later for data.
 - 0002 Hand tracking with MediaPipe Hand Landmarker.
-- 0003 Hand teleoperation: camera setup, axes and control (the arm accepted in ROB-28; the jaws' pitch: ROB-31).
+- 0003 Hand teleoperation: camera setup, axes and control (accepted; the arm in ROB-28, the jaws' pitch in ROB-31).
 - 0004 Own controller configuration for Gazebo: the upstream robot with controllers at 100 Hz instead of 10 Hz.
 
 ## Pitfalls
@@ -60,5 +60,5 @@ in Gazebo — M1 hand → gripper, M2 hand → arm in its vertical plane; data c
 
 ## Current milestone
 
-M2 Hand → arm: ROB-28 merged (PR #5); ROB-31 (the jaws follow the hand's pitch) built and checked headless with a
-turned video of my hand; next its webcam test with my hand, then the PR.
+M2 Hand → arm done with ROB-31 (jaws follow the hand's pitch; webcam test 2026-10-27). Next, agreed 2026-10-27
+(logs): exit criteria (ADR 0005), a hand-depth spike for the shoulder pan, pick and place in MuJoCo (M3), ACT (M4).

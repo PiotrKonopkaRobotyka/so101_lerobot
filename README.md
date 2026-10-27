@@ -145,6 +145,8 @@ up, jaws 45° down). Then:
   (`gain` 1.0). Targets stay in the box `bounds_reach` × `bounds_height`, move at most `max_step_m` (2 cm) per
   frame and skip poses the arm cannot reach; when only the new jaw angle is out of reach, the gripper still
   moves and the jaws wait.
+- The scale is taken when the clutch engages: rest the elbow on the desk in a marked spot, so the hand keeps its
+  distance to the camera, and engage again after moving the elbow.
 - The arm moves in its vertical plane: joints 1 (pan) and 5 (wrist roll) stay at 0, and our planar IK
   (`so101_hand/kinematics.py`) turns the target into joints 2–4. The TF frame `tcp` shows the point between the jaws.
 - Without the keyboard: `ros2 service call /hand_teleop/clutch std_srvs/srv/SetBool "{data: true}"`.

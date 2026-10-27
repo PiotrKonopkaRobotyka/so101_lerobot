@@ -1,8 +1,7 @@
 # 0003. Hand teleoperation: camera setup, axes and control
 
-- Status: Accepted for the setup, the axes, the gripper (pose confirmed in ROB-19, gripper control in ROB-27) and
-  the arm (ROB-28, webcam test on 2026-10-26); the jaws following the hand's pitch (ROB-31) stay proposed until
-  their webcam test
+- Status: Accepted: the setup and the axes (pose confirmed in ROB-19), the gripper (ROB-27), the arm (ROB-28) and
+  the jaws following the hand's pitch (ROB-31), each after a webcam test with my hand (the last on 2026-10-27)
 - Date: 2026-10-13
 
 ## Context
