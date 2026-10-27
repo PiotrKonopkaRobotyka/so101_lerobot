@@ -1,0 +1,36 @@
+# Tests of so101_hand, the ROS-free core: numpy and pytest, no ROS, MediaPipe or webcam.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  so101_hand:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # the so101_ws layout: this repository in src/so101_lerobot, next to the third-party repos
+      - uses: actions/checkout@v7
+        with:
+          path: src/so101_lerobot
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # the lock pins numpy as in the venv, and setuptools<80 that vcstool needs (pkg_resources, removed in 82)
+      - name: Install so101_hand and vcstool
+        run: pip install -c src/so101_lerobot/requirements-lock.txt -e "src/so101_lerobot/so101_hand[dev]" vcstool
+
+      # the kinematics tests compare with the third-party URDF, at the version pinned in .repos
+      - name: Import the third-party repos
+        run: vcs import src < src/so101_lerobot/so101_lerobot.repos
+
+      # -rs lists the skipped tests and why (the tracker tests need MediaPipe)
+      - name: Run the tests
+        run: python -m pytest -rs src/so101_lerobot/so101_hand
