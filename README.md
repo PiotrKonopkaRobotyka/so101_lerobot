@@ -167,14 +167,16 @@ Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `hand_
 
 ## Limitations
 
-Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006):
+Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006, ADR 0007):
 
 - One webcam, depth from one camera: the hand is measured well across the image and poorly along the camera's axis.
-  In the side view (M2, what runs today) the image plane is the arm's plane, so the arm moves only in that plane,
-  and the scale is taken when the clutch engages, so moving the hand nearer or farther changes the gain until the
-  next engage. From the front (ADR 0006, built in ROB-35) aiming over the table is in the image plane and only the
-  gripper's height rides on the depth: from the hand's distance if the spike ROB-34 finds it precise enough (a dead
-  zone of a few cm), otherwise from keys.
+  Measured in ROB-34 (ADR 0007): the depth from MediaPipe's landmarks (palm scale, solvePnP, 21-point scale) is
+  precise while the hand holds its pose (σ ≤ 0.5 cm at 41–69 cm) but every change of the pose reads as depth:
+  closing the hand +10 cm, tilting the fingers 40–60° +13 to +48 cm, moving the hand 10 cm across the image up to
+  +10 cm. So no axis is driven by the depth: from the front (ADR 0006, built in ROB-35) aiming over the table is in
+  the image plane and the gripper's height comes from a key. In the side view (M2, what runs today) the image plane
+  is the arm's plane, so the arm moves only in that plane, and the scale is taken when the clutch engages, so moving
+  the hand nearer or farther changes the gain until the next engage.
 - Side view (until ROB-35): holding the forearm across the body tires the shoulder (rest the elbow on the desk),
   and with the palm down the camera can lose the thumb and the index finger (ROB-19: open told from closed in
   98.8–99.5% of frames from the side, 97.6–100% from the front).
