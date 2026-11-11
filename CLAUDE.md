@@ -43,8 +43,8 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - 0003 Hand teleoperation: camera setup, axes and control (the side view; setup and arm control superseded by 0006).
 - 0004 Own controller configuration for Gazebo: the upstream robot with controllers at 100 Hz instead of 10 Hz.
 - 0005 Project scope and exit criteria: pick and place in MuJoCo, ~50 demos, ACT (M3–M5); limit: one-camera depth.
-- 0006 Hand teleoperation from the front: the hand over the workspace seen from above (absolute XY in a ring sector,
-  the base turns), the height from the depth (ROB-34) or keys, `space` a pause, a top-down grasp; built in ROB-35.
+- 0006 Hand from the front over the workspace seen from above: absolute XY (the base turns), top-down grasp, `space` pauses.
+- 0007 Gripper height from a key: the one-camera depth is precise with a steady pose, but any pose change reads as ≥ 10 cm.
 
 ## Pitfalls
 
@@ -59,4 +59,4 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 ## Current milestone
 
 M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). The side view runs until ROB-35 builds
-ADR 0006; first ROB-34 (the depth, recorded from the front).
+ADR 0006 with the height from a key (ADR 0007); the spike ROB-34 is done.
