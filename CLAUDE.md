@@ -39,11 +39,13 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Decisions (`docs/decisions/`)
 
-- 0001 Hand teleoperation first, on Gazebo; MuJoCo later for data.
-- 0002 Hand tracking with MediaPipe Hand Landmarker.
-- 0003 Hand teleoperation: camera setup, axes and control (accepted; the arm in ROB-28, the jaws' pitch in ROB-31).
+- 0001 Hand teleoperation first, on Gazebo; MuJoCo later for data. 0002 Hand tracking with MediaPipe Hand Landmarker.
+- 0003 Hand teleoperation: camera setup, axes and control (the side view of M1–M2; setup and arm control superseded
+  by 0006, the gripper measure, EMA, planar IK, TCP and bounds stay).
 - 0004 Own controller configuration for Gazebo: the upstream robot with controllers at 100 Hz instead of 10 Hz.
 - 0005 Project scope and exit criteria: pick and place in MuJoCo, ~50 demos, ACT (M3–M5); limit: one-camera depth.
+- 0006 Hand teleoperation from the front: the hand over the workspace seen from above (absolute XY in a ring sector,
+  the base turns), the height from the depth (ROB-34) or keys, `space` a pause, a top-down grasp; built in ROB-35.
 
 ## Pitfalls
 
@@ -57,4 +59,5 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Current milestone
 
-M3 Webcam pick and place in MuJoCo + 50 demos; exit criteria in ADR 0005, order and status in Linear.
+M3 Webcam pick and place in MuJoCo + 50 demos; exit criteria in ADR 0005, order and status in Linear. The side view
+runs until ROB-35 builds ADR 0006; first ROB-34 (the depth, recorded from the front).

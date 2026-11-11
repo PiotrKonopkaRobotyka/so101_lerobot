@@ -1,7 +1,10 @@
 # 0003. Hand teleoperation: camera setup, axes and control
 
 - Status: Accepted: the setup and the axes (pose confirmed in ROB-19), the gripper (ROB-27), the arm (ROB-28) and
-  the jaws following the hand's pitch (ROB-31), each after a webcam test with my hand (the last on 2026-10-27)
+  the jaws following the hand's pitch (ROB-31), each after a webcam test with my hand (the last on 2026-10-27).
+  Superseded in part by ADR 0006 (2026-11-11): the setup, the axes, the relative arm control with the clutch and
+  the jaws following the hand's pitch; the gripper measure and calibration, the EMA, the scale, the planar IK, the
+  TCP, the bounds and the step limit stay.
 - Date: 2026-10-13
 
 ## Context
