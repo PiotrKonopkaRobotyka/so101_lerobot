@@ -116,6 +116,9 @@ mirrored: the red line is the thumb–index gap, the white one the palm length i
 
 ## Hand → arm (stage 2)
 
+This is the side view of M2 (ADR 0003), what runs today. ADR 0006 replaces it with the hand in front of the
+camera over the workspace seen from above (built in ROB-35); until that is merged, the arm control below applies.
+
 ![Webcam preview with the clutch dot on the wrist (left) and the arm in Gazebo (right)](docs/media/hand_arm.gif)
 
 `space` engages the clutch and the wrist dot turns from grey to green; then the gripper follows the hand forward,
@@ -164,17 +167,22 @@ Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `hand_
 
 ## Limitations
 
-Limits of the method, known by design (ADR 0003, ADR 0005):
+Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006):
 
 - One webcam, depth from one camera: the hand is measured well across the image and poorly along the camera's axis.
-  In the side view the image plane is the arm's plane, so the arm moves only in that plane. The base (joint 1) will
-  turn with the hand's depth if a spike finds it precise enough (ROB-34), otherwise with keys. The scale is taken
-  when the clutch engages, so moving the hand nearer or farther changes the gain until the next engage.
-- Side view: holding the forearm across the body tires the shoulder (rest the elbow on the desk), and with the palm
-  down the camera can lose the thumb and the index finger (ROB-19: open told from closed in 98.8–99.5% of frames).
-- The arm moves only with the clutch: the control is relative, like a mouse. The arm follows the hand only while
-  the clutch is engaged, and the clutch is a key (`space`) or a service call, not a gesture.
-- No wrist roll: joint 5 stays at 0, so the jaws tilt with the hand but do not roll.
+  In the side view (M2, what runs today) the image plane is the arm's plane, so the arm moves only in that plane,
+  and the scale is taken when the clutch engages, so moving the hand nearer or farther changes the gain until the
+  next engage. From the front (ADR 0006, built in ROB-35) aiming over the table is in the image plane and only the
+  gripper's height rides on the depth: from the hand's distance if the spike ROB-34 finds it precise enough (a dead
+  zone of a few cm), otherwise from keys.
+- Side view (until ROB-35): holding the forearm across the body tires the shoulder (rest the elbow on the desk),
+  and with the palm down the camera can lose the thumb and the index finger (ROB-19: open told from closed in
+  98.8–99.5% of frames from the side, 97.6–100% from the front).
+- The arm moves only with the clutch (until ROB-35): the control is relative, like a mouse. The arm follows the
+  hand only while the clutch is engaged, and the clutch is a key (`space`) or a service call, not a gesture. From
+  ADR 0006 on the mapping is absolute (the hand over the workspace) and `space` is a pause.
+- No wrist roll: joint 5 stays at 0. The jaws tilt with the hand in the side view and point down from ADR 0006 on
+  (a top-down grasp, reachable in part of the workspace because of the wrist flex limit).
 - Grasping only in MuJoCo, not in Gazebo: the Gazebo stages move the gripper and the arm with no objects to pick.
   Picking a block and recording demonstrations for training are planned in MuJoCo (ADR 0005).
 - Simulation only: no real SO-101 has been driven yet.
