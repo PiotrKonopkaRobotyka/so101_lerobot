@@ -96,8 +96,8 @@ The hand is lost for a moment and the gripper waits; then it opens and closes wi
 upstream controller configuration, so the gripper is about 1 s behind; now it is about 0.3 s (ADR 0004).
 
 Close your hand to close the simulated gripper, open it to open the gripper. The pose: the open right hand in front
-of your chest, palm to the camera (ADR 0006; until ROB-35 the forearm across the body, seen from the side, ADR
-0003); any view where the camera sees the thumb and the index finger works.
+of your chest, palm to the camera (ADR 0006; the GIF shows the earlier side view of ADR 0003); any view where the
+camera sees the thumb and the index finger works.
 
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true
