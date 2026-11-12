@@ -14,9 +14,9 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - `so101_bringup/` — `sim.launch.py` (alias `so101_sim`): Gazebo, controllers, MoveIt, RViz; the hand node instead of
   MoveIt with `moveit:=false hand:=true [arm:=true]` (alias `so101_hand`); our controllers at 100 Hz (ADR 0004).
 - `so101_hand/` — plain Python, no `rclpy` (`COLCON_IGNORE`, `pip install -e`); `tracker` the only MediaPipe import,
-  `kinematics` the planar FK/IK and TCP, `teleop` the clutch; `tests/urdf_reference.py` = generic FK of the URDF.
-- `so101_hand_ros/` — node `hand_teleop`: webcam (or `video_path`) → `so101_hand` → gripper goals and, with
-  `arm`, arm goals (joints 1 and 5 at 0); clutch on space or `~/clutch`; parameters in `config/hand_teleop.yaml`.
+  `kinematics` FK/IK (pan + planar), `teleop` table map and follower; `tests/urdf_reference.py` = URDF FK.
+- `so101_hand_ros/` — node `hand_teleop`: webcam (or `video:=`) → `so101_hand` → gripper goals and, with `arm`, arm
+  goals (joint 5 at 0); space or `~/clutch` follows/pauses, z the height; parameters in `config/hand_teleop.yaml`.
 - `lerobot_teleop/run_teleop.py` — keyboard joint teleoperation through LeRobot (`so101_ros`, `keyboard_joint`).
 - `lerobot_mimic/` — legacy YOLO pose (AGPL-3.0) arm mimicking, J2/J3 only; kept as an example.
 
@@ -32,10 +32,11 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - Run: `so101_sim` or `so101_hand`; without aliases `ws so101` and `ros2 launch so101_bringup sim.launch.py`.
 - Check: `ros2 control list_controllers` shows 3 active controllers; Plan & Execute in RViz moves the arm.
 - Tests: `python -m pytest src/so101_lerobot/so101_hand` (venv, ~2 s, no ROS or camera); CI runs them (`tests.yml`).
-- Scripted checks: no GUI (it crashes without OpenGL, also `offscreen`), but the upstream launch always opens it:
-  include `ros_gz_sim` `gz_sim.launch.py` with `gz_args` `-s …` (plain `gz sim` misses the `gz_ros2_control` plugin
-  path); own `ROS_DOMAIN_ID`, `GZ_PARTITION`; the node on a video (`-p video_path:=<file> -p preview:=false`);
-  `set -m`, `kill -INT -- -<pgid>` (a background job ignores SIGINT); no `set -u`. Never open the webcam unasked.
+- Scripted checks: `sim.launch.py … headless:=true video:=<file> preview:=false` (the GUI needs OpenGL), e.g. on
+  `~/data/hand_depth_spike/plane.avi`; own `ROS_DOMAIN_ID`, `GZ_PARTITION`; `set -m`, `kill -INT -- -<pgid>`; no
+  `set -u`; never the webcam unasked. The sandbox blocks multicast, so nothing is found without `GZ_IP=127.0.0.1
+  GZ_RELAY=127.0.0.1 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` exported for the whole check; no `pkill -f` on own
+  patterns.
 
 ## Decisions (`docs/decisions/`)
 
@@ -43,8 +44,8 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - 0003 Hand teleoperation: camera setup, axes and control (the side view; setup and arm control superseded by 0006).
 - 0004 Own controller configuration for Gazebo: the upstream robot with controllers at 100 Hz instead of 10 Hz.
 - 0005 Project scope and exit criteria: pick and place in MuJoCo, ~50 demos, ACT (M3–M5); limit: one-camera depth.
-- 0006 Hand from the front over the workspace seen from above: absolute XY (the base turns), top-down grasp, `space` pauses.
-- 0007 Gripper height from a key: the one-camera depth is precise with a steady pose, but any pose change reads as ≥ 10 cm.
+- 0006 Hand from the front over the workspace from above: absolute XY (the base turns), top-down grasp, `space` pauses.
+- 0007 Gripper height from a key: one-camera depth is precise with a steady pose, but pose changes read as ≥ 10 cm.
 
 ## Pitfalls
 
@@ -54,9 +55,9 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - Gripper joint "6": 0.0 rad closed, 1.745 rad open (lerobot-ros normalises 0 = open, 1 = closed). A goal beyond
   the limit leaves the simulated jaw stuck there: command it through `so101_hand.gripper` (≤ 1.725 rad).
 - MoveIt's SUCCESS means the trajectory time is over, not that the joints arrived: check `/joint_states` (ADR 0004).
-- A YAML value under the node name beats a launch dict parameter (written under `/**`): keep `arm` out of the YAML.
+- A YAML value under the node name beats a launch dict one (under `/**`): no `arm`, `video_path`, `preview` in YAML.
 
 ## Current milestone
 
-M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). The side view runs until ROB-35 builds
-ADR 0006 with the height from a key (ADR 0007); the spike ROB-34 is done.
+M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). ROB-35 built the frontal mapping (ADR 0006,
+the height from a key, ADR 0007): webcam check by Piotr pending; next ROB-36 (sector from the IK), ROB-17 (MuJoCo).

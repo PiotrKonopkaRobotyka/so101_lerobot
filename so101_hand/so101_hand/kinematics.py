@@ -1,8 +1,10 @@
-"""Planar kinematics of the SO-101 arm with the shoulder pan (joint "1") and the wrist roll (joint "5") at 0.
+"""Kinematics of the SO-101 arm: the shoulder pan (joint "1") turns the plane in which the shoulder lift, elbow flex
+and wrist flex (joints "2"–"4") move the gripper; the wrist roll (joint "5") stays at 0.
 
-Joints "2" (shoulder lift), "3" (elbow flex) and "4" (wrist flex) then all turn about the X axis of the `base`
-frame, so the arm moves in the vertical YZ plane of the base. Plane coordinates: reach = forward (-Y of the base:
-the arm at zero points that way), height = up (+Z). The geometry comes from the third-party URDF (checked by tests).
+Plane coordinates: reach = distance forward from the base axis, height = up (+Z of the base). With the pan at 0 the
+arm points along -Y of the base, so the plane is the base's YZ plane. Over the table (ADR 0006): forward (-Y of the
+base), right (-X of the base) and height, in metres; the pan is positive to the robot's right, because the joint's
+axis is -Z of the base. The geometry comes from the third-party URDF (checked by tests).
 """
 
 import math
@@ -22,7 +24,19 @@ TCP_0 = np.array([0.37547, 0.26685])  # with the gripper pointing straight forwa
 UPPER_ARM = float(np.hypot(*(ELBOW_0 - SHOULDER)))  # 0.116 m
 FOREARM = float(np.hypot(*(WRIST_0 - ELBOW_0)))  # 0.135 m
 
+PAN_LIMITS = (-1.91986, 1.91986)  # joint "1"
 JOINT_LIMITS = {"2": (-1.74533, 1.74533), "3": (-1.74533, 1.5708), "4": (-1.65806, 1.65806)}
+
+# The pan axis (joint "1") in (forward, right) coordinates: 2.3 cm in front of the base origin and 2.1 cm to its
+# left; the arm's plane runs 0.2 mm to the right of the axis (URDF, checked by tests)
+PAN_AXIS = np.array([0.023075, -0.020791])
+PLANE_OFFSET = 0.000175
+
+# Joint "3" with the upper arm and the forearm in one line (the arm stretched): there a millimetre of reach turns
+# the elbow by degrees (a singularity), so the teleoperation keeps the elbow bent by at least MIN_ELBOW_BEND
+_UPPER_0, _FORE_0 = ELBOW_0 - SHOULDER, WRIST_0 - ELBOW_0
+ELBOW_STRAIGHT = math.atan2(_FORE_0[1], _FORE_0[0]) - math.atan2(_UPPER_0[1], _UPPER_0[0])  # -1.288 rad
+MIN_ELBOW_BEND = math.radians(30)  # 20° let the elbow turn 0.18 rad per 5 mm of reach near the edge, 30° 0.13
 
 
 class Pose(NamedTuple):
@@ -32,6 +46,14 @@ class Pose(NamedTuple):
     reach: float
     height: float
     pitch: float
+
+
+class Point(NamedTuple):
+    """TCP over the table: forward (-Y of the base), right (-X of the base) and height (+Z), in metres."""
+
+    forward: float
+    right: float
+    height: float
 
 
 def forward(q2: float, q3: float, q4: float) -> Pose:
@@ -88,6 +110,86 @@ def inverse(pose: Pose, current=(0.0, 0.0, 0.0)) -> tuple[float, float, float] |
     if not candidates:
         return None
     return min(candidates, key=lambda q: sum((a - b) ** 2 for a, b in zip(q, current)))
+
+
+# --- over the table: the pan turns the plane (ADR 0006) ---
+
+
+def pan_angle(point: Point) -> float:
+    """Direction of `point` seen from the pan axis: 0 straight ahead, positive to the robot's right (radians)."""
+    return math.atan2(point.right - PAN_AXIS[1], point.forward - PAN_AXIS[0])
+
+
+def forward3d(q1: float, q2: float, q3: float, q4: float) -> tuple[Point, float]:
+    """TCP point over the table and the jaws' pitch (in the turned plane) for joint angles in radians.
+
+    The pan turns the TCP's offset from its axis: along the plane (the planar reach minus the axis' forward
+    position) and across it (the plane's offset); a positive pan turns forward towards the right.
+    """
+    plane = forward(q2, q3, q4)
+    along, c, s = plane.reach - PAN_AXIS[0], math.cos(q1), math.sin(q1)
+    forward_m = PAN_AXIS[0] + along * c - PLANE_OFFSET * s
+    right_m = PAN_AXIS[1] + along * s + PLANE_OFFSET * c
+    return Point(float(forward_m), float(right_m), plane.height), plane.pitch
+
+
+def inverse3d(point: Point, pitch: float, current=(0.0, 0.0, 0.0, 0.0)) -> tuple[float, float, float, float] | None:
+    """Joint angles (q1, q2, q3, q4) reaching `point` with the jaws at `pitch`, or None.
+
+    The pan points the plane at the target (the offset from the axis, less the plane's own offset, undoes
+    `forward3d`), then the planar IK works in that plane; `current` picks between elbow up and down as in `inverse`.
+    """
+    d_forward, d_right = point.forward - PAN_AXIS[0], point.right - PAN_AXIS[1]
+    along_squared = d_forward**2 + d_right**2 - PLANE_OFFSET**2
+    if along_squared <= 0.0:
+        return None  # on the pan axis
+    along = math.sqrt(along_squared)
+    q1 = math.atan2(d_right, d_forward) - math.atan2(PLANE_OFFSET, along)
+    if not PAN_LIMITS[0] - 1e-9 <= q1 <= PAN_LIMITS[1] + 1e-9:
+        return None
+    q = inverse(Pose(float(PAN_AXIS[0] + along), point.height, pitch), current=tuple(current[1:]))
+    return None if q is None else (q1, *q)
+
+
+def inverse_steepest(
+    point: Point,
+    pitch_range: tuple[float, float] = (-math.pi / 2, -math.pi / 4),
+    current=(0.0, 0.0, 0.0, 0.0),
+    step: float = math.radians(5),
+    refinements: int = 10,
+    min_elbow_bend: float = MIN_ELBOW_BEND,
+) -> tuple[tuple[float, float, float, float], float] | None:
+    """Joint angles and the jaws' pitch for `point` with the steepest pitch the arm reaches there (ADR 0006).
+
+    The wrist flex limit lets the jaws point straight down only near the base (to about 0.25–0.28 m from the pan
+    axis below 0.1 m of height); farther out they tilt. The search goes from `pitch_range[0]` (straight down) towards
+    `pitch_range[1]` in steps of `step`, and the first pitch that works is refined by bisection against the last one
+    that did not, so the pitch changes smoothly as the point moves. A pitch works when the IK has a solution with
+    the elbow bent by at least `min_elbow_bend`: without that, the far targets would ride the stretched-arm
+    singularity and the elbow would twitch. None when no pitch of the range works.
+    """
+
+    def solve(pitch: float):
+        q = inverse3d(point, pitch, current)
+        return q if q is not None and abs(q[2] - ELBOW_STRAIGHT) >= min_elbow_bend else None
+
+    pitch, rejected = pitch_range[0], None
+    while pitch <= pitch_range[1] + 1e-9:
+        q = solve(pitch)
+        if q is not None:
+            break
+        rejected, pitch = pitch, pitch + step
+    else:
+        return None
+    if rejected is not None:
+        for _ in range(refinements):
+            middle = (rejected + pitch) / 2
+            q_middle = solve(middle)
+            if q_middle is None:
+                rejected = middle
+            else:
+                pitch, q = middle, q_middle
+    return q, pitch
 
 
 def _rotation(angle: float) -> np.ndarray:

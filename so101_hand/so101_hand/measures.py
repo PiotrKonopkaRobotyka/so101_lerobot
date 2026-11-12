@@ -1,11 +1,9 @@
-"""Hand measures from MediaPipe landmarks: the openness measure chosen in the ROB-19 spike, the hand's pitch and the
-image scale."""
-
-import math
+"""Hand measures from MediaPipe landmarks: the openness measure chosen in the ROB-19 spike and the palm's centre."""
 
 import numpy as np
 
 WRIST, THUMB_TIP, INDEX_TIP, MIDDLE_MCP = 0, 4, 8, 9
+PALM = (WRIST, 5, MIDDLE_MCP, 13, 17)  # the wrist and the four knuckles (MCP joints): the part that does not curl
 
 
 def aperture(landmarks: np.ndarray) -> float:
@@ -19,25 +17,11 @@ def aperture(landmarks: np.ndarray) -> float:
     return float(np.linalg.norm(xy[THUMB_TIP] - xy[INDEX_TIP]) / _palm_px(xy))
 
 
-def hand_pitch(landmarks: np.ndarray) -> float:
-    """Angle of the palm line (wrist → middle-finger MCP) above the forward direction, in radians.
+def palm_centre(landmarks: np.ndarray) -> np.ndarray:
+    """Mean of the wrist and the knuckles, (x, y) in pixels: where the hand is (ADR 0006).
 
-    Side view of ADR 0003 on the raw frame: forward = image right (+u), up = image up (-v). The same convention as
-    the jaws' pitch (kinematics.Pose): 0 = pointing forward, -pi/2 = pointing straight down.
-    """
-    xy = _image_xy(landmarks)
-    _palm_px(xy)  # rejects a zero palm, whose direction is undefined
-    du, dv = xy[MIDDLE_MCP] - xy[WRIST]
-    return math.atan2(-dv, du)
-
-
-def metres_per_pixel(image_landmarks: np.ndarray, world_landmarks: np.ndarray) -> float:
-    """Image scale at the hand's depth: palm length in MediaPipe's world landmarks (metres) / in the image (pixels).
-
-    Turns a hand displacement in pixels into metres without a calibration template (ADR 0003).
-    """
-    world = np.asarray(world_landmarks, dtype=float)
-    return float(np.linalg.norm(world[WRIST] - world[MIDDLE_MCP]) / _palm_px(_image_xy(image_landmarks)))
+    The knuckles do not curl, so closing the hand hardly moves this point."""
+    return _image_xy(landmarks)[list(PALM)].mean(axis=0)
 
 
 def _image_xy(landmarks) -> np.ndarray:

@@ -1,7 +1,7 @@
 # 0006. Hand teleoperation from the front: the hand over the workspace seen from above
 
-- Status: Accepted (agreed on 2026-11-11); the height axis is settled in ROB-34, the mapping is checked with my
-  hand in ROB-35
+- Status: Accepted (agreed on 2026-11-11); the height axis settled in ROB-34 (ADR 0007: a key, no depth), the
+  mapping built in ROB-35 (`so101_hand.teleop`, `hand_teleop`), to be confirmed with my hand
 - Date: 2026-11-11
 - Supersedes: in ADR 0003 the setup, the axes, the relative arm control with the clutch and the jaws following the
   hand's pitch. Its gripper measure and calibration, the EMA, the image scale, the planar IK, the TCP, the workspace
@@ -45,7 +45,8 @@ The hand is the gripper seen from above:
   right (the base turns); hand up → away from the base (the reach). A hand outside the sector is drawn red and the
   target is rejected.
 - The hand's position is the palm's centre (the wrist and the knuckles), which hardly moves when the hand closes,
-  taken in metres in the camera frame: x and y from the image at the hand's depth, z the depth.
+  taken in metres in the camera frame: x and y from the image at the hand's depth, z the depth. (Amended by
+  ADR 0007: in pixels of the image, no depth at all.)
 - Height: the gripper hovers at a fixed height above the table while the hand is at its usual distance from the
   camera, and goes down towards the table when the hand comes nearer by more than the dead zone d (ROB-34), as far
   as the push; back out, it rises. The usual distance is the hand's depth when the pause is released (and before
