@@ -1,14 +1,16 @@
-"""ROS 2 node: the operator's hand seen by the webcam → goals for the simulated SO-101 (ADR 0003).
+"""ROS 2 node: the operator's hand seen by the webcam → goals for the simulated SO-101 (ADR 0006, ADR 0007).
 
-Stage 1: the hand's openness drives the gripper. Stage 2 (parameter `arm`): while the clutch is engaged, moving
-the hand moves the gripper in the arm's plane and tilting it tilts the jaws (so101_hand.teleop), through our planar
-IK (so101_hand.kinematics).
+Stage 1: the hand's openness drives the gripper. Stage 2 (parameter `arm`): the hand over the workspace seen from
+above drives the gripper over the table: where the palm is in the preview, inside the drawn sector, is where the
+gripper goes (so101_hand.teleop), the base turning with it (so101_hand.kinematics); the height is a level toggled
+with the key z (hover or grasp) and the jaws point down.
 The logic lives in the so101_hand package (plain Python, tested with pytest). This node only reads frames with
 OpenCV (not cv_bridge: it is built for numpy 1.x), shows the preview and publishes the goals.
 
 Keys in the preview window: c / o = calibrate the closed / open hand (hold the pose for about a second first),
-space = engage or release the clutch, h = arm back to the home pose, q = quit. The service ~/clutch
-(std_srvs/SetBool) engages or releases the clutch without the keyboard.
+space = follow the hand or pause, z = hover or grasp height, h = arm back to the home pose, q = quit. Without the
+keyboard: the services ~/clutch (std_srvs/SetBool: true follows, false pauses) and ~/grasp (true = grasp height,
+false = hover).
 """
 
 import math
@@ -16,6 +18,7 @@ import time
 from collections import deque
 
 import cv2
+import numpy as np
 import rclpy
 from geometry_msgs.msg import TransformStamped
 from rclpy.duration import Duration
@@ -28,21 +31,22 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from so101_hand.calibration import Calibration
 from so101_hand.filters import HoldingEma
 from so101_hand.gripper import openness_to_joint
-from so101_hand.kinematics import TCP_IN_GRIPPER, Pose, forward, inverse, solutions
-from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture, hand_pitch, metres_per_pixel
-from so101_hand.teleop import Bounds, Clutch
+from so101_hand.kinematics import PAN_AXIS, PLANE_OFFSET, TCP_IN_GRIPPER, Point, forward3d, inverse_steepest
+from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture, palm_centre
+from so101_hand.teleop import Bounds, Follower, TableMap
 from so101_hand.tracker import DEFAULT_MODEL, HandTracker
 
 WINDOW = "so101_hand"
 GRIPPER_JOINT = "6"
-ARM_JOINTS = ["1", "2", "3", "4", "5"]  # 1 (shoulder pan) and 5 (wrist roll) stay at 0: the arm moves in its plane
+ARM_JOINTS = ["1", "2", "3", "4", "5"]  # 5 (wrist roll) stays at 0
 CALIBRATION_WINDOW_S = 1.0  # c / o take the apertures of the last second
-HOME = Pose(reach=0.25, height=0.15, pitch=-math.pi / 4)  # TCP at start and after h: in front, jaws 45° down
+HOME_REACH = 0.20  # TCP straight ahead of the pan axis at the hover height, jaws down: at start and after h
 HOME_TIME_S = 2.0
+GREEN, GREY, RED, WHITE, YELLOW = (0, 255, 0), (128, 128, 128), (0, 0, 255), (255, 255, 255), (0, 255, 255)
 
 
 class HandTeleopNode(Node):
-    """Frame → HandTracker → aperture → gripper goal; with `arm`: wrist → Clutch → IK → arm goal."""
+    """Frame → HandTracker → aperture → gripper goal; with `arm`: palm → Follower → IK → arm goal."""
 
     def __init__(self):
         super().__init__("hand_teleop")
@@ -53,27 +57,35 @@ class HandTeleopNode(Node):
         self.period_s = 1.0 / self.declare_parameter("rate_hz", 10.0).value
         self.move_time = Duration(seconds=self.declare_parameter("move_time_s", 0.1).value).to_msg()
         self.calibration = Calibration(
-            closed=self.declare_parameter("aperture_closed", 0.2).value,
-            open=self.declare_parameter("aperture_open", 1.6).value,
+            closed=self.declare_parameter("aperture_closed", 0.4).value,
+            open=self.declare_parameter("aperture_open", 1.1).value,
         )
         alpha = self.declare_parameter("ema_alpha", 0.4).value
         hold_s = self.declare_parameter("hold_s", 0.5).value
         self.filter = HoldingEma(alpha=alpha, hold_s=hold_s)
-        self.wrist_filters = (HoldingEma(alpha=alpha, hold_s=hold_s), HoldingEma(alpha=alpha, hold_s=hold_s))
-        self.pitch_filter = HoldingEma(alpha=alpha, hold_s=hold_s)
+        self.palm_filters = (HoldingEma(alpha=alpha, hold_s=hold_s), HoldingEma(alpha=alpha, hold_s=hold_s))
         self.arm = self.declare_parameter("arm", False).value
-        self.clutch = Clutch(
-            gain=self.declare_parameter("gain", 1.0).value,
+        self.levels = {  # TCP heights in metres; z toggles between them
+            "hover": self.declare_parameter("hover_height", 0.08).value,
+            "grasp": self.declare_parameter("grasp_height", 0.02).value,
+        }
+        self.level = "hover"
+        self.pitch_range = tuple(self.declare_parameter("pitch_range", [-math.pi / 2, -math.pi / 4]).value)
+        self.follower = Follower(
+            table=TableMap(
+                px_per_m=self.declare_parameter("px_per_m", 800.0).value,
+                axis_px=tuple(self.declare_parameter("axis_px", [320.0, 440.0]).value),
+            ),
             bounds=Bounds(
-                reach=tuple(self.declare_parameter("bounds_reach", [0.10, 0.40]).value),
+                reach=tuple(self.declare_parameter("bounds_reach", [0.12, 0.34]).value),
+                pan=tuple(self.declare_parameter("bounds_pan", [-math.pi / 3, math.pi / 3]).value),
                 height=tuple(self.declare_parameter("bounds_height", [0.02, 0.40]).value),
-                pitch=tuple(self.declare_parameter("bounds_pitch", [-math.pi / 2, math.pi / 6]).value),
             ),
             max_step_m=self.declare_parameter("max_step_m", 0.02).value,
-            reachable=lambda pose: bool(solutions(pose)),
-            pitch_gain=self.declare_parameter("pitch_gain", 1.0).value,
-            max_step_rad=self.declare_parameter("max_step_rad", 0.05).value,
+            max_step_height_m=self.declare_parameter("max_step_height_m", 0.005).value,
+            reachable=lambda point: self.solve(point) is not None,
         )
+        self.home = Point(float(PAN_AXIS[0] + HOME_REACH), float(PAN_AXIS[1] + PLANE_OFFSET), self.levels["hover"])
 
         self.tracker = HandTracker(model_path)
         self.source = video_path or f"camera {camera_index}"
@@ -91,14 +103,16 @@ class HandTeleopNode(Node):
 
         self.publisher = self.create_publisher(JointTrajectory, "/gripper_controller/joint_trajectory", 10)
         self.recent = deque(maxlen=60)  # (time, aperture) of the last frames with a hand, for c / o
-        self.hand = None  # the last detected hand, for engaging the clutch
+        self.hand = None  # the last detected hand
+        self.palm_px = None  # the smoothed palm centre in the raw frame, or None without a hand
         if self.arm:
             self.arm_publisher = self.create_publisher(JointTrajectory, "/arm_controller/joint_trajectory", 10)
             self.joints = {}  # the latest /joint_states
-            self.arm_command = None  # the last commanded (q2, q3, q4)
+            self.arm_command = None  # the last commanded (q1, q2, q3, q4)
             self.home_sent = False
             self.create_subscription(JointState, "/joint_states", self.on_joint_states, 10)
             self.create_service(SetBool, "~/clutch", self.on_clutch)
+            self.create_service(SetBool, "~/grasp", self.on_grasp)
             self.publish_tcp_frame()
         self.get_logger().info(
             f"reading {self.source}, goals at {1.0 / self.period_s:.0f} Hz; calibration: closed "
@@ -119,7 +133,7 @@ class HandTeleopNode(Node):
                 self.recent.append((t_s, ap))
             openness = self.filter.update(t_s, None if ap is None else self.calibration.openness(ap))
             target = self.arm_target(t_s) if self.arm else None
-            # None: the hand is lost for longer than hold_s (or the clutch is released), so no goals; the controller
+            # None: the hand is lost for longer than hold_s (or the arm is paused), so no goals; the controller
             # keeps the last one. 0.9: frames arrive with jitter; without the margin a frame 1 ms early would wait.
             if t_s - last_goal_s >= 0.9 * self.period_s and (openness is not None or target is not None):
                 if openness is not None:
@@ -127,7 +141,7 @@ class HandTeleopNode(Node):
                 if target is not None:
                     self.send_arm(target, self.move_time)
                 last_goal_s = t_s
-            if self.preview and not self.show(frame, ap, openness, target):
+            if self.preview and not self.show(frame, ap, openness):
                 break
             rclpy.spin_once(self, timeout_sec=0.0)
             if self.frame_period_s:
@@ -139,49 +153,49 @@ class HandTeleopNode(Node):
 
     # --- stage 2: the arm ---
 
-    def arm_target(self, t_s: float) -> Pose | None:
-        """The clutch's TCP target for the smoothed wrist position and hand pitch, or None (released, hand lost)."""
-        wrist = None if self.hand is None else self.hand.image[WRIST]
-        u = self.wrist_filters[0].update(t_s, None if wrist is None else float(wrist[0]))
-        v = self.wrist_filters[1].update(t_s, None if wrist is None else float(wrist[1]))
-        pitch = None if self.hand is None else hand_pitch(self.hand.image)
-        if pitch is not None and self.pitch_filter.value is not None:
-            # next to the smoothed value, so the EMA never averages +179° and -179° into 0°
-            pitch = self.pitch_filter.value + math.remainder(pitch - self.pitch_filter.value, math.tau)
-        pitch = self.pitch_filter.update(t_s, pitch)
-        return self.clutch.update(None if u is None or v is None else (u, v), hand_pitch=pitch)
+    def arm_target(self, t_s: float) -> Point | None:
+        """The follower's TCP target for the smoothed palm centre, or None (paused, hand lost)."""
+        palm = None if self.hand is None else palm_centre(self.hand.image)
+        u = self.palm_filters[0].update(t_s, None if palm is None else float(palm[0]))
+        v = self.palm_filters[1].update(t_s, None if palm is None else float(palm[1]))
+        self.palm_px = None if u is None or v is None else (u, v)
+        return self.follower.update(self.palm_px, self.levels[self.level])
 
-    def send_arm(self, target: Pose, move_time) -> None:
-        q = inverse(target, current=self.current_arm() or (0.0, 0.0, 0.0))
-        if q is None:  # the clutch only passes reachable targets; HOME is reachable
+    def solve(self, point: Point) -> tuple[float, float, float, float] | None:
+        """Joints 1–4 for `point` with the steepest jaws the arm reaches there (ADR 0006), or None."""
+        found = inverse_steepest(point, self.pitch_range, current=self.current_arm() or (0.0, 0.0, 0.0, 0.0))
+        return None if found is None else found[0]
+
+    def send_arm(self, target: Point, move_time) -> None:
+        q = self.solve(target)
+        if q is None:  # the follower only passes reachable targets; the home point is reachable
             return
         self.arm_command = q
-        point = JointTrajectoryPoint(positions=[0.0, *q, 0.0], time_from_start=move_time)
+        point = JointTrajectoryPoint(positions=[*q, 0.0], time_from_start=move_time)
         self.arm_publisher.publish(JointTrajectory(joint_names=ARM_JOINTS, points=[point]))
 
-    def current_arm(self) -> tuple[float, float, float] | None:
+    def current_arm(self) -> tuple[float, float, float, float] | None:
         """Where the arm is going (the last command), or where it is (/joint_states), or None before both."""
         if self.arm_command is not None:
             return self.arm_command
-        if all(j in self.joints for j in ("2", "3", "4")):
-            return (self.joints["2"], self.joints["3"], self.joints["4"])
+        if all(j in self.joints for j in ("1", "2", "3", "4")):
+            return tuple(self.joints[j] for j in ("1", "2", "3", "4"))
         return None
 
     def go_home(self) -> None:
-        self.clutch.release()
-        self.send_arm(HOME, Duration(seconds=HOME_TIME_S).to_msg())
-        self.get_logger().info(f"arm to the home pose (TCP reach {HOME.reach} m, height {HOME.height} m)")
+        self.follower.pause()
+        self.level = "hover"
+        self.send_arm(self.home, Duration(seconds=HOME_TIME_S).to_msg())
+        self.get_logger().info(
+            f"arm to the home pose (TCP {self.home.forward:.2f} m ahead, {self.home.height:.2f} m up), paused"
+        )
 
-    def engage(self) -> str | None:
-        """Engage the clutch at the current hand and TCP; returns why it could not, or None."""
+    def resume(self) -> str | None:
+        """Follow the hand from where the gripper is; returns why it could not, or None."""
         q = self.current_arm()
-        if self.hand is None or q is None:
-            return "no hand in view" if self.hand is None else "no joint states yet"
-        # the smoothed wrist and pitch, as in arm_target(): raw ones would make the first target jump by the filter's lag
-        wrist = (self.wrist_filters[0].value, self.wrist_filters[1].value)
-        scale = metres_per_pixel(self.hand.image, self.hand.world)
-        self.clutch.engage(wrist, metres_per_px=scale, tcp=forward(*q), hand_pitch=self.pitch_filter.value)
-        return None
+        if q is None:
+            return "no joint states yet"
+        return self.follower.resume(self.palm_px, forward3d(*q)[0])
 
     def on_joint_states(self, msg: JointState) -> None:
         self.joints.update(zip(msg.name, msg.position))
@@ -191,11 +205,16 @@ class HandTeleopNode(Node):
 
     def on_clutch(self, request: SetBool.Request, response: SetBool.Response) -> SetBool.Response:
         if request.data:
-            problem = self.engage()
-            response.success, response.message = problem is None, problem or "engaged"
+            problem = self.resume()
+            response.success, response.message = problem is None, problem or "following"
         else:
-            self.clutch.release()
-            response.success, response.message = True, "released"
+            self.follower.pause()
+            response.success, response.message = True, "paused"
+        return response
+
+    def on_grasp(self, request: SetBool.Request, response: SetBool.Response) -> SetBool.Response:
+        self.level = "grasp" if request.data else "hover"
+        response.success, response.message = True, f"{self.level}: TCP {self.levels[self.level]:.2f} m up"
         return response
 
     def publish_tcp_frame(self) -> None:
@@ -210,46 +229,68 @@ class HandTeleopNode(Node):
 
     # --- preview ---
 
-    def show(self, frame, ap, openness, target) -> bool:
+    def draw_workspace(self, frame) -> None:
+        """The workspace as the hand sees it in the raw frame (mirrored with the frame later): the sector of the
+        bounds, the ring where the gripper is (or is going), the dot where the palm is."""
+        bounds, table = self.follower.bounds, self.follower.table
+        pans = np.linspace(bounds.pan[0], bounds.pan[1], 40)
+        arcs = [(bounds.reach[1], a) for a in pans] + [(bounds.reach[0], a) for a in pans[::-1]]  # outer, then inner
+        outline = [table.to_pixels(*(PAN_AXIS + reach * np.array([math.cos(a), math.sin(a)]))) for reach, a in arcs]
+        cv2.polylines(frame, [np.array(outline, dtype=np.int32)], isClosed=True, color=GREY, thickness=2)
+        q = self.current_arm()
+        if q is not None:
+            tcp = forward3d(*q)[0]
+            u, v = table.to_pixels(tcp.forward, tcp.right)
+            cv2.circle(frame, (int(u), int(v)), 12, WHITE, 2)
+        if self.palm_px is not None:
+            inside = self.follower.inside(self.palm_px, self.levels[self.level])
+            colour = RED if not inside else GREEN if self.follower.following else GREY
+            cv2.circle(frame, (int(self.palm_px[0]), int(self.palm_px[1])), 8, colour, -1)
+
+    def show(self, frame, ap, openness) -> bool:
         """Draw the measured points, show the mirrored preview and handle the keys; False after q."""
+        if self.arm:
+            self.draw_workspace(frame)
         if self.hand is not None:
             lm = self.hand.image
             p = {i: (int(lm[i][0]), int(lm[i][1])) for i in (WRIST, THUMB_TIP, INDEX_TIP, MIDDLE_MCP)}
-            cv2.line(frame, p[WRIST], p[MIDDLE_MCP], (255, 255, 255), 2)  # palm line: aperture unit and hand pitch
-            cv2.line(frame, p[THUMB_TIP], p[INDEX_TIP], (0, 0, 255), 3)  # the measured gap
-            if self.arm:
-                cv2.circle(frame, p[WRIST], 8, (0, 255, 0) if self.clutch.engaged else (128, 128, 128), -1)
+            cv2.line(frame, p[WRIST], p[MIDDLE_MCP], WHITE, 2)  # palm line: the aperture's unit
+            cv2.line(frame, p[THUMB_TIP], p[INDEX_TIP], RED, 3)  # the measured gap
         view = cv2.flip(frame, 1)  # mirrored like a selfie; drawn before the flip, so the lines stay on the hand
         lines = [
             f"aperture {ap:.2f}" if ap is not None else "no hand",
             f"gripper {100 * openness:.0f}% open" if openness is not None else "hand lost: the gripper stays",
-            f"calibration: closed {self.calibration.closed:.2f}, open {self.calibration.open:.2f}",
+            f"calibration (c / o): closed {self.calibration.closed:.2f}, open {self.calibration.open:.2f}",
         ]
-        if self.arm:
-            state = "ENGAGED" if self.clutch.engaged else "released"
-            where = (
-                f": TCP {100 * target.reach:.0f} cm forward, {100 * target.height:.0f} cm up, "
-                f"jaws {math.degrees(target.pitch):.0f} deg"  # OpenCV's fonts have no degree sign
-                if target
-                else ""
-            )
-            lines.append(f"arm {state}{where}")
-            lines.append("c / o = calibrate, space = clutch, h = home, q = quit")  # longer lines are cut at 640 px
-        else:
-            lines.append("c = closed hand, o = open hand (hold 1 s first), q = quit")
+        keys = "c = closed hand, o = open hand (hold 1 s first), q = quit"
+        if self.arm:  # lines longer than about 58 characters are cut at 640 px
+            state = "FOLLOWING" if self.follower.following else "paused"
+            lines.append(f"arm {state}, height {self.level.upper()} {100 * self.levels[self.level]:.0f} cm (z)")
+            q = self.current_arm()
+            if q is not None:
+                tcp, pitch = forward3d(*q)
+                side = "right" if tcp.right >= 0 else "left"
+                lines.append(  # OpenCV's fonts have no degree sign
+                    f"TCP {100 * tcp.forward:.0f} cm ahead, {100 * abs(tcp.right):.0f} cm {side}, "
+                    f"jaws {math.degrees(pitch):.0f} deg"
+                )
+            keys = "space = follow/pause, z = height, h = home, q = quit"
         for i, text in enumerate(lines):
-            cv2.putText(view, text, (10, 25 + 25 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            cv2.putText(view, text, (10, 25 + 25 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.6, YELLOW, 2)
+        cv2.putText(view, keys, (10, view.shape[0] - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, YELLOW, 2)
         cv2.imshow(WINDOW, view)
         key = cv2.waitKey(1) & 0xFF
         if key in (ord("c"), ord("o")):
             self.calibrate("closed" if key == ord("c") else "open")
         elif self.arm and key == ord(" "):
-            if self.clutch.engaged:
-                self.clutch.release()
+            if self.follower.following:
+                self.follower.pause()
             else:
-                problem = self.engage()
+                problem = self.resume()
                 if problem:
-                    self.get_logger().warning(f"clutch not engaged: {problem}")
+                    self.get_logger().warning(f"not following: {problem}")
+        elif self.arm and key == ord("z"):
+            self.level = "hover" if self.level == "grasp" else "grasp"
         elif self.arm and key == ord("h"):
             self.go_home()
         return key != ord("q")

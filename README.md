@@ -95,9 +95,9 @@ python src/so101_lerobot/lerobot_teleop/run_teleop.py
 The hand is lost for a moment and the gripper waits; then it opens and closes with the hand. Recorded with the
 upstream controller configuration, so the gripper is about 1 s behind; now it is about 0.3 s (ADR 0004).
 
-Close your hand to close the simulated gripper, open it to open the gripper. The pose: right forearm held across
-the body, seen from the side by the webcam (ADR 0003); any view where the camera sees the thumb and the index
-finger works.
+Close your hand to close the simulated gripper, open it to open the gripper. The pose: the open right hand in front
+of your chest, palm to the camera (ADR 0006; the GIF shows the earlier side view of ADR 0003); any view where the
+camera sees the thumb and the index finger works.
 
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true
@@ -114,45 +114,46 @@ mirrored: the red line is the thumb–index gap, the white one the palm length i
 - Without a webcam, a recorded video is replayed in real time:
   `ros2 run so101_hand_ros hand_teleop --ros-args -p video_path:=<file> -p preview:=false`.
 
-## Hand → arm (stage 2)
+## Hand → arm (stage 2): the hand over the workspace seen from above
 
-This is the side view of M2 (ADR 0003), what runs today. ADR 0006 replaces it with the hand in front of the
-camera over the workspace seen from above (built in ROB-35); until that is merged, the arm control below applies.
-
-![Webcam preview with the clutch dot on the wrist (left) and the arm in Gazebo (right)](docs/media/hand_arm.gif)
-
-`space` engages the clutch and the wrist dot turns from grey to green; then the gripper follows the hand forward,
-down and back. Real time, with our controller configuration (ADR 0004).
+ADR 0006 and ADR 0007. The webcam sees you from the front; your open right hand in front of your chest, palm to
+the camera, is the gripper seen from above. The preview shows the robot's workspace from above as a grey ring
+sector (the arm's pan axis near the bottom edge, forward up the screen) and a white ring where the gripper is:
+where your palm is in the sector is where the gripper goes over the table, the base turning with it. The height
+comes from the key `z` (hover or grasp), the jaws point down, and closing your hand closes the gripper.
 
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true arm:=true
 ```
 
-The gripper works as in stage 1. The arm first goes to a home pose (gripper 25 cm in front of the base, 15 cm
-up, jaws 45° down). Then:
+Two Gazebo windows open: the robot from its left side and, for aiming, from above, oriented like the preview
+(forward up, the robot's right on the right). The arm first goes to the home pose (gripper 20 cm ahead of the pan
+axis at the hover height, jaws down), paused. Then:
 
-- `space` engages the clutch: the node latches where your wrist is in the image and where the gripper is. While
-  engaged, the gripper moves like your hand (ADR 0003): stretching the arm, i.e. the hand to your left → forward,
-  hand up → up, and the jaws tilt with your hand (below). Look at the robot in Gazebo from its left side, and the
-  gripper moves on the screen like your hand in the mirrored preview. `space` again releases the clutch and the
-  arm stops, so you can move your hand to a comfortable place and engage again, like lifting a mouse.
-- Tilting the hand tilts the jaws (ROB-31): turn the white palm line in the preview (wrist → middle-finger
-  knuckle) 20° down and the jaws turn 20° down (`pitch_gain` 1.0; 0.0 keeps the angle they had at engage). The
-  jaws stay between −90° (straight down) and +30° (`bounds_pitch`), turn at most `max_step_rad` (about 3°) per
-  frame, and the preview shows their angle.
-- `h` releases the clutch and sends the arm home.
-- Hand lost while the clutch is engaged: the arm stays, and so does the clutch. When the hand comes back somewhere
-  else, the gripper goes to the matching place at up to `max_step_m` per frame (about 0.4 m/s); release the clutch
-  first if you do not want that.
-- The scale comes from MediaPipe (palm length in metres / in pixels), so the gripper moves as far as your hand
-  (`gain` 1.0). Targets stay in the box `bounds_reach` × `bounds_height`, move at most `max_step_m` (2 cm) per
-  frame and skip poses the arm cannot reach; when only the new jaw angle is out of reach, the gripper still
-  moves and the jaws wait.
-- The scale is taken when the clutch engages: rest the elbow on the desk in a marked spot, so the hand keeps its
-  distance to the camera, and engage again after moving the elbow.
-- The arm moves in its vertical plane: joints 1 (pan) and 5 (wrist roll) stay at 0, and our planar IK
-  (`so101_hand/kinematics.py`) turns the target into joints 2–4. The TF frame `tcp` shows the point between the jaws.
-- Without the keyboard: `ros2 service call /hand_teleop/clutch std_srvs/srv/SetBool "{data: true}"`.
+- `space` follows the hand: the palm dot in the preview turns from grey to green, the gripper goes to where the
+  palm is at up to `max_step_m` per frame (about 0.4 m/s) and then follows it. Following starts only with the
+  hand inside the sector (a red dot means outside: the target is rejected). `space` again pauses: the arm holds
+  while you rest or move your hand.
+- `z` toggles the height between `hover_height` (8 cm) and `grasp_height` (2 cm), travelled at up to
+  `max_step_height_m` per frame (about 0.1 m/s); the preview shows the active one. Lower the gripper over the
+  block, close your hand, raise, carry, lower, open.
+- The jaws point straight down where the arm reaches it and tilt up to 45° near the edge of the sector
+  (`pitch_range`); the preview shows their angle.
+- `h` pauses and sends the arm home.
+- Hand lost while following: the arm stays; when the hand is back, the gripper goes to it at the step limit.
+- The mapping is set once in `so101_hand_ros/config/hand_teleop.yaml`: `px_per_m` (preview pixels per metre of
+  table) and `axis_px` (where the arm's pan axis is in the raw 640×480 frame); the sector is `bounds_reach` ×
+  `bounds_pan`. No depth is used anywhere (ADR 0007), so the distance to the camera only sets how far the hand
+  travels.
+- Our analytic IK (`so101_hand/kinematics.py`): the base angle (joint 1) from the target's direction, then the
+  planar IK in the turned plane (joints 2–4), with the elbow bent by at least 30° (away from the stretched arm,
+  where it would twitch); joint 5 (wrist roll) stays at 0. The TF frame `tcp` shows the point between the jaws.
+- Without the keyboard: `ros2 service call /hand_teleop/clutch std_srvs/srv/SetBool "{data: true}"` follows,
+  `false` pauses; `/hand_teleop/grasp` with `true` goes to the grasp height, `false` to the hover height.
+- Without a webcam or a screen: `video:=<file> preview:=false headless:=true` (a recording, no windows).
+
+The side view of M2 (ADR 0003: the hand moved the gripper in the arm's vertical plane with a clutch, the jaws
+following the hand's pitch) is in the history, tag `v0.2-side-view`, with its [GIF](docs/media/hand_arm.gif).
 
 Tests of the hand logic, no ROS or camera needed (venv active, in `so101_ws`):
 
@@ -173,18 +174,16 @@ Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006, ADR 0007):
   Measured in ROB-34 (ADR 0007): the depth from MediaPipe's landmarks (palm scale, solvePnP, 21-point scale) is
   precise while the hand holds its pose (σ ≤ 0.5 cm at 41–69 cm) but every change of the pose reads as depth:
   closing the hand +10 cm, tilting the fingers 40–60° +13 to +48 cm, moving the hand 10 cm across the image up to
-  +10 cm. So no axis is driven by the depth: from the front (ADR 0006, built in ROB-35) aiming over the table is in
-  the image plane and the gripper's height comes from a key. In the side view (M2, what runs today) the image plane
-  is the arm's plane, so the arm moves only in that plane, and the scale is taken when the clutch engages, so moving
-  the hand nearer or farther changes the gain until the next engage.
-- Side view (until ROB-35): holding the forearm across the body tires the shoulder (rest the elbow on the desk),
-  and with the palm down the camera can lose the thumb and the index finger (ROB-19: open told from closed in
-  98.8–99.5% of frames from the side, 97.6–100% from the front).
-- The arm moves only with the clutch (until ROB-35): the control is relative, like a mouse. The arm follows the
-  hand only while the clutch is engaged, and the clutch is a key (`space`) or a service call, not a gesture. From
-  ADR 0006 on the mapping is absolute (the hand over the workspace) and `space` is a pause.
-- No wrist roll: joint 5 stays at 0. The jaws tilt with the hand in the side view and point down from ADR 0006 on
-  (a top-down grasp, reachable in part of the workspace because of the wrist flex limit).
+  +10 cm. So no axis is driven by the depth: from the front (ADR 0006) aiming over the table is in the image plane
+  and the gripper's height comes from a key. (In the side view of M2, tag `v0.2-side-view`, the image plane was
+  the arm's plane, so the arm moved only in that plane, with the scale latched when the clutch engaged.)
+- Frontal pose: the camera must see the thumb and the index finger, and a fist hides them for a moment, which the
+  EMA and the hold cover (ROB-19: open told from closed in 97.6–100% of frames from the front).
+- The arm follows the hand only while following (`space`, or the service), and the pause is a key, not a gesture;
+  following starts only with the hand inside the sector. The hand's position maps to the table in pixels, so the
+  mapping is set once for one camera placement (`px_per_m`, `axis_px`).
+- No wrist roll: joint 5 stays at 0, and the jaws point down (a top-down grasp) where the arm reaches it, tilting
+  up to 45° elsewhere (the wrist flex limit): the block is grasped from above, within a part of the workspace.
 - Grasping only in MuJoCo, not in Gazebo: the Gazebo stages move the gripper and the arm with no objects to pick.
   Picking a block and recording demonstrations for training are planned in MuJoCo (ADR 0005).
 - Simulation only: no real SO-101 has been driven yet.
