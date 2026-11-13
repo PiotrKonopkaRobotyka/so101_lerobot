@@ -125,11 +125,16 @@ the gap and the gesture with its score, the second the gripper's state and what 
 
 ## Hand → arm (stage 2): the hand over the workspace seen from above
 
-ADR 0006 and ADR 0007. The webcam sees you from the front; your open right hand in front of your chest, palm to
-the camera, is the gripper seen from above. The preview shows the robot's workspace from above as a grey ring
-sector (the arm's pan axis near the bottom edge, forward up the screen) and a white ring where the gripper is:
+![Pick and place with the hand: Gazebo from the side and from above, and the webcam preview with the workspace sector](docs/media/hand_workspace.gif)
+
+The open hand brings the gripper over a spot, `z` lowers it, a fist closes the jaws, `z` raises them, the hand
+carries them to the left, `z` lowers them and the open hand releases (12 s in real time, 2026-11-13).
+
+ADR 0006, ADR 0007 and ADR 0008. The webcam sees you from the front; your open right hand in front of your chest,
+palm to the camera, is the gripper seen from above. The preview shows the robot's workspace from above as a grey
+ring sector (the arm's pan axis near the bottom edge, forward up the screen) and a white ring where the gripper is:
 where your palm is in the sector is where the gripper goes over the table, the base turning with it. The height
-comes from the key `z` (hover or grasp), the jaws point down, and closing your hand closes the gripper.
+comes from the key `z` (hover or grasp), the jaws point down, and a fist closes the gripper.
 
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true arm:=true

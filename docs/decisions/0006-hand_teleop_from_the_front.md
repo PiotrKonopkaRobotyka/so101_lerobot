@@ -1,7 +1,8 @@
 # 0006. Hand teleoperation from the front: the hand over the workspace seen from above
 
 - Status: Accepted (agreed on 2026-11-11); the height axis settled in ROB-34 (ADR 0007: a key, no depth), the
-  mapping built in ROB-35 (`so101_hand.teleop`, `hand_teleop`), to be confirmed with my hand
+  mapping built in ROB-35 (`so101_hand.teleop`, `hand_teleop`) and confirmed with my hand in four webcam tests on
+  2026-11-12/13 (the gripper's states: ADR 0008)
 - Date: 2026-11-11
 - Supersedes: in ADR 0003 the setup, the axes, the relative arm control with the clutch and the jaws following the
   hand's pitch. Its gripper measure and calibration, the EMA, the image scale, the planar IK, the TCP, the workspace

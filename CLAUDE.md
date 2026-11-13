@@ -62,4 +62,5 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 ## Current milestone
 
 M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). ROB-35 built the frontal mapping (ADR 0006,
-the height from a key, ADR 0007): webcam check by Piotr pending; next ROB-36 (sector from the IK), ROB-17 (MuJoCo).
+the height from a key, ADR 0007, the gripper from gestures, ADR 0008), checked with the webcam on 2026-11-13; next
+ROB-36 (sector from the IK) or ROB-17 (MuJoCo).
