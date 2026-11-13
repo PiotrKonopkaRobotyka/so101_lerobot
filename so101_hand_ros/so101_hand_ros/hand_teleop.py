@@ -1,9 +1,9 @@
 """ROS 2 node: the operator's hand seen by the webcam → goals for the simulated SO-101 (ADR 0006, ADR 0007).
 
-Stage 1: the hand's openness drives the gripper. Stage 2 (parameter `arm`): the hand over the workspace seen from
-above drives the gripper over the table: where the palm is in the preview, inside the drawn sector, is where the
-gripper goes (so101_hand.teleop), the base turning with it (so101_hand.kinematics); the height is a level toggled
-with the key z (hover or grasp) and the jaws point down.
+Stage 1: the hand opens and closes the gripper (two states, ADR 0008). Stage 2 (parameter `arm`): the hand over the
+workspace seen from above drives the gripper over the table: where the palm is in the preview, inside the drawn
+sector, is where the gripper goes (so101_hand.teleop), the base turning with it (so101_hand.kinematics); the height
+is a level toggled with the key z (hover or grasp) and the jaws point down.
 The logic lives in the so101_hand package (plain Python, tested with pytest). This node only reads frames with
 OpenCV (not cv_bridge: it is built for numpy 1.x), shows the preview and publishes the goals.
 
@@ -30,7 +30,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from so101_hand.calibration import Calibration
 from so101_hand.filters import HoldingEma
-from so101_hand.gripper import openness_to_joint
+from so101_hand.gripper import CLOSED_RAD, OPEN_RAD
 from so101_hand.kinematics import PAN_AXIS, PLANE_OFFSET, TCP_IN_GRIPPER, Point, forward3d, inverse_steepest
 from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture, palm_centre
 from so101_hand.teleop import Bounds, Follower, TableMap
@@ -46,7 +46,7 @@ GREEN, GREY, RED, WHITE, YELLOW = (0, 255, 0), (128, 128, 128), (0, 0, 255), (25
 
 
 class HandTeleopNode(Node):
-    """Frame → HandTracker → aperture → gripper goal; with `arm`: palm → Follower → IK → arm goal."""
+    """Frame → HandTracker → aperture → gripper state → goal; with `arm`: palm → Follower → IK → arm goal."""
 
     def __init__(self):
         super().__init__("hand_teleop")
@@ -62,7 +62,8 @@ class HandTeleopNode(Node):
         )
         alpha = self.declare_parameter("ema_alpha", 0.4).value
         hold_s = self.declare_parameter("hold_s", 0.5).value
-        self.filter = HoldingEma(alpha=alpha, hold_s=hold_s)
+        self.filter = HoldingEma(alpha=alpha, hold_s=hold_s)  # the aperture
+        self.gripper_open = True  # the gripper's state (ADR 0008); it starts open
         self.palm_filters = (HoldingEma(alpha=alpha, hold_s=hold_s), HoldingEma(alpha=alpha, hold_s=hold_s))
         self.arm = self.declare_parameter("arm", False).value
         self.levels = {  # TCP heights in metres; z toggles between them
@@ -131,17 +132,19 @@ class HandTeleopNode(Node):
             ap = None if self.hand is None else aperture(self.hand.image)
             if ap is not None:
                 self.recent.append((t_s, ap))
-            openness = self.filter.update(t_s, None if ap is None else self.calibration.openness(ap))
+            smoothed = self.filter.update(t_s, ap)  # the aperture's EMA, held while the hand is briefly lost
+            if smoothed is not None:
+                self.gripper_open = self.calibration.is_open(smoothed, self.gripper_open)
             target = self.arm_target(t_s) if self.arm else None
             # None: the hand is lost for longer than hold_s (or the arm is paused), so no goals; the controller
             # keeps the last one. 0.9: frames arrive with jitter; without the margin a frame 1 ms early would wait.
-            if t_s - last_goal_s >= 0.9 * self.period_s and (openness is not None or target is not None):
-                if openness is not None:
-                    self.send_goal(openness_to_joint(openness))
+            if t_s - last_goal_s >= 0.9 * self.period_s and (smoothed is not None or target is not None):
+                if smoothed is not None:
+                    self.send_goal(OPEN_RAD if self.gripper_open else CLOSED_RAD)
                 if target is not None:
                     self.send_arm(target, self.move_time)
                 last_goal_s = t_s
-            if self.preview and not self.show(frame, ap, openness):
+            if self.preview and not self.show(frame, ap, smoothed):
                 break
             rclpy.spin_once(self, timeout_sec=0.0)
             if self.frame_period_s:
@@ -247,7 +250,7 @@ class HandTeleopNode(Node):
             colour = RED if not inside else GREEN if self.follower.following else GREY
             cv2.circle(frame, (int(self.palm_px[0]), int(self.palm_px[1])), 8, colour, -1)
 
-    def show(self, frame, ap, openness) -> bool:
+    def show(self, frame, ap, smoothed) -> bool:
         """Draw the measured points, show the mirrored preview and handle the keys; False after q."""
         if self.arm:
             self.draw_workspace(frame)
@@ -257,9 +260,15 @@ class HandTeleopNode(Node):
             cv2.line(frame, p[WRIST], p[MIDDLE_MCP], WHITE, 2)  # palm line: the aperture's unit
             cv2.line(frame, p[THUMB_TIP], p[INDEX_TIP], RED, 3)  # the measured gap
         view = cv2.flip(frame, 1)  # mirrored like a selfie; drawn before the flip, so the lines stay on the hand
+        if smoothed is None:
+            gripper = "hand lost: the gripper stays"
+        elif self.gripper_open:  # the state, and the threshold the smoothed aperture must reach to change it
+            gripper = f"gripper OPEN (closes at {self.calibration.closed:.2f})"
+        else:
+            gripper = f"gripper CLOSED (opens at {self.calibration.open:.2f})"
         lines = [
             f"aperture {ap:.2f}" if ap is not None else "no hand",
-            f"gripper {100 * openness:.0f}% open" if openness is not None else "hand lost: the gripper stays",
+            gripper,
             f"calibration (c / o): closed {self.calibration.closed:.2f}, open {self.calibration.open:.2f}",
         ]
         keys = "c = closed hand, o = open hand (hold 1 s first), q = quit"

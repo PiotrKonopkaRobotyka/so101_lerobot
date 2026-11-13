@@ -7,14 +7,16 @@ hand_teleop:
     # video:= and preview:=; a value here would override them (launch writes its parameters under /**)
 
     # Aperture (thumb-index gap / palm length) of the closed and the open hand, seen from the front (ADR 0006).
+    # They are the gripper's two thresholds (ADR 0008): it closes when the smoothed aperture falls to aperture_closed,
+    # opens when it rises to aperture_open, and keeps its state in between.
     # Press c / o in the preview to measure yours; the node prints the values to paste here. These: my hand in the
     # webcam test of 2026-11-12, the fist median 0.19 (90 % below 0.29), the relaxed open hand (fingers together)
-    # median 0.77 (90 % above 0.65). The hand spread wide in the ROB-34 recording gave 1.09-1.21: with that as the
-    # open pose the relaxed hand opened the gripper only halfway. From the side they were 0.11 and 2.28.
+    # median 0.77 (90 % above 0.65). The hand spread wide in the ROB-34 recording gave 1.09-1.21, which the relaxed
+    # hand does not reach. From the side they were 0.11 and 2.28.
     aperture_closed: 0.36
     aperture_open: 0.70
 
-    ema_alpha: 0.4        # smoothing of the openness and the palm: 1.0 = none; 0.4 lags about 50 ms at 20 fps
+    ema_alpha: 0.4        # smoothing of the aperture and the palm: 1.0 = none; 0.4 lags about 50 ms at 20 fps
     hold_s: 0.5           # hand lost for longer: no more goals, the gripper and the arm stay where they are
     rate_hz: 10.0         # goals per second
     move_time_s: 0.1      # time_from_start of each goal

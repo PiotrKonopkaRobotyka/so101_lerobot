@@ -97,18 +97,23 @@ upstream controller configuration, so the gripper is about 1 s behind; now it is
 
 Close your hand to close the simulated gripper, open it to open the gripper. The pose: the open right hand in front
 of your chest, palm to the camera (ADR 0006; the GIF shows the earlier side view of ADR 0003); any view where the
-camera sees the thumb and the index finger works.
+camera sees the thumb and the index finger works. The gripper is open or closed, never in between (ADR 0008): it
+closes when the thumb–index gap falls to the closed pose, opens when it rises to the open pose, and keeps its state
+between them, so a trembling hand or a fist turned thumb up does not move the jaws. To close it, make a fist towards
+the camera or put the thumb on the index finger.
 
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true
 ```
 
 Gazebo starts first; the hand node and its preview window start once the controllers are active. The preview is
-mirrored: the red line is the thumb–index gap, the white one the palm length it is divided by.
+mirrored: the red line is the thumb–index gap, the white one the palm length it is divided by; the second line is
+the gripper's state and the threshold that changes it, e.g. `gripper CLOSED (opens at 0.70)`.
 
 - Calibration: hold the closed hand still for a second and press `c`, then the open hand and `o`. The node prints
-  `aperture_closed` and `aperture_open`; to keep them, put them in `so101_hand_ros/config/hand_teleop.yaml`
-  (installed as a symlink, no rebuild needed). `q` closes the node; Gazebo keeps running.
+  `aperture_closed` and `aperture_open`, the two thresholds; to keep them, put them in
+  `so101_hand_ros/config/hand_teleop.yaml` (installed as a symlink, no rebuild needed). `q` closes the node; Gazebo
+  keeps running.
 - Hand lost for more than `hold_s` (0.5 s): the node stops sending goals and the gripper stays where it is.
 - Goals never leave the joint range: a goal beyond the URDF limit would leave the simulated jaw stuck.
 - Without a webcam, a recorded video is replayed in real time:

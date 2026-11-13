@@ -53,7 +53,7 @@ The hand is the gripper seen from above:
   that, when the hand is first seen), so nothing is calibrated. If ROB-34 finds the depth too noisy for that
   (d > 3 cm), two keys move the gripper down and up at a fixed rate instead.
 - Closing the hand closes the gripper: the measure and the two-pose calibration of ADR 0003, with the frontal
-  values of ROB-19.
+  values of ROB-19. (Amended by ADR 0008: the gripper is open or closed, the two poses are its thresholds.)
 - The jaws point down (a top-down grasp) and do not follow the hand any more: the IK takes the steepest pitch the
   arm reaches at the target, −90° where it can; the wrist roll stays 0.
 - `space` is a pause, no longer a clutch: the arm holds while I rest or move the hand; it resumes only with a

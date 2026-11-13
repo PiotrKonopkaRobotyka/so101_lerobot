@@ -46,6 +46,7 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - 0005 Project scope and exit criteria: pick and place in MuJoCo, ~50 demos, ACT (M3–M5); limit: one-camera depth.
 - 0006 Hand from the front over the workspace from above: absolute XY (the base turns), top-down grasp, `space` pauses.
 - 0007 Gripper height from a key: one-camera depth is precise with a steady pose, but pose changes read as ≥ 10 cm.
+- 0008 Gripper open or closed, with hysteresis: the calibrated closed and open poses are the two thresholds.
 
 ## Pitfalls
 
