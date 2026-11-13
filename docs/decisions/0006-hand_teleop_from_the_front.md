@@ -1,7 +1,8 @@
 # 0006. Hand teleoperation from the front: the hand over the workspace seen from above
 
 - Status: Accepted (agreed on 2026-11-11); the height axis settled in ROB-34 (ADR 0007: a key, no depth), the
-  mapping built in ROB-35 (`so101_hand.teleop`, `hand_teleop`), to be confirmed with my hand
+  mapping built in ROB-35 (`so101_hand.teleop`, `hand_teleop`) and confirmed with my hand in four webcam tests on
+  2026-11-12/13 (the gripper's states: ADR 0008)
 - Date: 2026-11-11
 - Supersedes: in ADR 0003 the setup, the axes, the relative arm control with the clutch and the jaws following the
   hand's pitch. Its gripper measure and calibration, the EMA, the image scale, the planar IK, the TCP, the workspace
@@ -53,7 +54,7 @@ The hand is the gripper seen from above:
   that, when the hand is first seen), so nothing is calibrated. If ROB-34 finds the depth too noisy for that
   (d > 3 cm), two keys move the gripper down and up at a fixed rate instead.
 - Closing the hand closes the gripper: the measure and the two-pose calibration of ADR 0003, with the frontal
-  values of ROB-19.
+  values of ROB-19. (Amended by ADR 0008: the gripper is open or closed, the two poses are its thresholds.)
 - The jaws point down (a top-down grasp) and do not follow the hand any more: the IK takes the steepest pitch the
   arm reaches at the target, −90° where it can; the wrist roll stays 0.
 - `space` is a pause, no longer a clutch: the arm holds while I rest or move the hand; it resumes only with a

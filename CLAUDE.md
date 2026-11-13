@@ -40,12 +40,14 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Decisions (`docs/decisions/`)
 
-- 0001 Hand teleoperation first, on Gazebo; MuJoCo later for data. 0002 Hand tracking with MediaPipe Hand Landmarker.
+- 0001 Hand teleoperation first, on Gazebo; MuJoCo later for data. 0002 Hand tracking with MediaPipe (since 0008 its
+  Gesture Recognizer, model `gesture_recognizer.task`).
 - 0003 Hand teleoperation: camera setup, axes and control (the side view; setup and arm control superseded by 0006).
 - 0004 Own controller configuration for Gazebo: the upstream robot with controllers at 100 Hz instead of 10 Hz.
 - 0005 Project scope and exit criteria: pick and place in MuJoCo, ~50 demos, ACT (M3–M5); limit: one-camera depth.
 - 0006 Hand from the front over the workspace from above: absolute XY (the base turns), top-down grasp, `space` pauses.
 - 0007 Gripper height from a key: one-camera depth is precise with a steady pose, but pose changes read as ≥ 10 cm.
+- 0008 Gripper open or closed: a fist / an open palm (gestures) decides at once, else the aperture with hysteresis.
 
 ## Pitfalls
 
@@ -60,4 +62,5 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 ## Current milestone
 
 M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). ROB-35 built the frontal mapping (ADR 0006,
-the height from a key, ADR 0007): webcam check by Piotr pending; next ROB-36 (sector from the IK), ROB-17 (MuJoCo).
+the height from a key, ADR 0007, the gripper from gestures, ADR 0008), checked with the webcam on 2026-11-13; next
+ROB-36 (sector from the IK) or ROB-17 (MuJoCo).

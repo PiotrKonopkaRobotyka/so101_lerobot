@@ -1,24 +1,56 @@
+import math
+
 import pytest
 
 from so101_hand.calibration import MIN_SPAN, Calibration
 
-# Defaults of the node, inside the apertures measured in the ROB-19 spike (side view: closed 0.13, open 1.7-2.2)
+# Poses inside the apertures measured in the ROB-19 spike (side view: closed 0.13, open 1.7-2.2)
 DEFAULT = Calibration(closed=0.2, open=1.6)
+# My hand from the front, as in config/hand_teleop.yaml (the webcam tests of 2026-11-12 and 2026-11-13)
+FRONT = Calibration(closed=0.36, open=0.70)
 
 
-def test_closed_pose_gives_zero_and_open_pose_gives_one():
-    assert DEFAULT.openness(0.2) == 0.0
-    assert DEFAULT.openness(1.6) == 1.0
+@pytest.mark.parametrize("was_open", [True, False])
+@pytest.mark.parametrize("aperture", [0.0, 0.1, 0.2])
+def test_at_or_below_the_closed_pose_the_gripper_closes(aperture, was_open):
+    assert DEFAULT.is_open(aperture, was_open) is False
 
 
-def test_halfway_aperture_gives_half():
-    assert DEFAULT.openness(0.9) == pytest.approx(0.5)
+@pytest.mark.parametrize("was_open", [True, False])
+@pytest.mark.parametrize("aperture", [1.6, 1.7, 5.0])
+def test_at_or_above_the_open_pose_the_gripper_opens(aperture, was_open):
+    assert DEFAULT.is_open(aperture, was_open) is True
 
 
-@pytest.mark.parametrize("aperture, expected", [(0.0, 0.0), (0.1, 0.0), (1.7, 1.0), (5.0, 1.0)])
-def test_apertures_beyond_the_calibrated_poses_are_clamped(aperture, expected):
-    # a hand opened wider than at calibration must not ask for more than "fully open"
-    assert DEFAULT.openness(aperture) == expected
+@pytest.mark.parametrize("was_open", [True, False])
+@pytest.mark.parametrize("aperture", [0.21, 0.9, 1.59])
+def test_between_the_poses_the_gripper_keeps_its_state(aperture, was_open):
+    assert DEFAULT.is_open(aperture, was_open) is was_open
+
+
+def test_nan_is_rejected_instead_of_moving_the_gripper():
+    with pytest.raises(ValueError):
+        DEFAULT.is_open(math.nan, True)
+
+
+def replay(calibration, apertures, is_open=True):
+    states = []
+    for aperture in apertures:
+        is_open = calibration.is_open(aperture, is_open)
+        states.append(is_open)
+    return states
+
+
+def test_a_fist_turned_thumb_up_keeps_the_gripper_closed():
+    # The webcam test of 2026-11-13, one value a second: the open hand, the fist towards the camera, the fist turned
+    # thumb up while moving right (0.45-0.54: it held the old proportional gripper 34-55 % open), the hand opened.
+    apertures = [0.90, 0.76, 0.19, 0.14, 0.54, 0.51, 0.45, 0.48, 0.32, 1.28]
+    assert replay(FRONT, apertures) == [True, True] + [False] * 7 + [True]
+
+
+def test_a_trembling_open_hand_keeps_the_gripper_open():
+    # the relaxed open hand of the 2026-11-12 test: 0.65-0.85, dipping to 0.42 for a moment
+    assert all(replay(FRONT, [0.77, 0.65, 0.42, 0.58, 0.80]))
 
 
 def test_closed_pose_from_samples_uses_the_upper_quartile():
@@ -32,11 +64,11 @@ def test_open_pose_from_samples_uses_the_lower_quartile():
     assert cal.open == pytest.approx(1.9)
 
 
-def test_noise_around_a_calibrated_pose_keeps_the_gripper_at_the_end():
+def test_a_closed_hand_calibrated_from_noisy_samples_closes_the_gripper():
     samples = [0.11, 0.13, 0.12, 0.14, 0.12, 0.13, 0.11, 0.13]  # closed hand, frame-to-frame noise
     cal = DEFAULT.with_closed(samples)
-    at_zero = [cal.openness(a) == 0.0 for a in samples]
-    assert sum(at_zero) >= 0.75 * len(samples)
+    closing = [not cal.is_open(a, was_open=True) for a in samples]
+    assert sum(closing) >= 0.75 * len(samples)
 
 
 def test_recalibrating_one_pose_keeps_the_other():

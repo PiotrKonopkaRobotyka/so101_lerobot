@@ -1,4 +1,5 @@
-"""Smoothing of the hand openness, and holding it while the hand is briefly lost."""
+"""Smoothing of the hand's measures (the aperture, the palm's centre), and holding them while the hand is briefly
+lost."""
 
 import math
 

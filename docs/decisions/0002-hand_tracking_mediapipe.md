@@ -1,6 +1,7 @@
 # 0002. Hand tracking with MediaPipe Hand Landmarker
 
-- Status: Accepted; detection in the side view confirmed in ROB-19 (2026-10-22)
+- Status: Accepted; detection in the side view confirmed in ROB-19 (2026-10-22). Amended by ADR 0008: the node uses
+  MediaPipe's Gesture Recognizer (`gesture_recognizer.task`), which runs this Hand Landmarker and adds the gesture.
 - Date: 2026-10-13
 
 ## Context
