@@ -17,14 +17,13 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
   `kinematics` FK/IK (pan + planar), `teleop` table map and follower; `tests/urdf_reference.py` = URDF FK.
 - `so101_hand_ros/` — node `hand_teleop`: webcam (or `video:=`) → `so101_hand` → gripper goals and, with `arm`, arm
   goals (joint 5 at 0); space or `~/clutch` follows/pauses, z the height; parameters in `config/hand_teleop.yaml`.
-- `lerobot_teleop/run_teleop.py` — keyboard joint teleoperation through LeRobot (`so101_ros`, `keyboard_joint`).
 - `lerobot_mimic/` — legacy YOLO pose (AGPL-3.0) arm mimicking, J2/J3 only; kept as an example.
 
-## Third-party (pinned in `so101_lerobot.repos`, never modified)
+## Third-party (pinned in `so101_lerobot.repos` or `requirements.txt`, never modified)
 
 - `lerobot_ws` (Pavankv92, Apache-2.0): `lerobot_description` (URDF, Gazebo launch), `lerobot_controller` (JTC
   `arm_controller` on "1"–"5", `gripper_controller` on "6"), `lerobot_moveit` (groups `arm`, `gripper`; KDL IK).
-- `lerobot-ros` (ycheng517, Apache-2.0): LeRobot robot `so101_ros` and teleoperators over ROS; venv, `pip -e`.
+- so101-nexus 0.11.0 (johnsutor, Apache-2.0, PyPI): the MuJoCo scene, task and success check (ADR 0009).
 
 ## Build, run, check
 
@@ -56,8 +55,9 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - The venv has numpy 2.2.6; `cv_bridge` from apt is built for numpy 1.x and crashes there: read images without it.
 - Three OpenCV wheels share `cv2` in the venv: always install with `-c src/so101_lerobot/constraints.txt` (ADR 0002).
 - MediaPipe imports `matplotlib`; apt's 3.6 is built for numpy 1.x, so the venv has its own (Axes3D warning: harmless).
-- Gripper joint "6": 0.0 rad closed, 1.745 rad open (lerobot-ros normalises 0 = open, 1 = closed). A goal beyond
-  the limit leaves the simulated jaw stuck there: command it through `so101_hand.gripper` (≤ 1.725 rad).
+- Gripper joint "6": 0.0 rad closed, 1.745 rad open (LeRobot datasets: `gripper.pos` 0–100 over −10°…100°). A goal
+  beyond the limit leaves the Gazebo jaw stuck there: command it through `so101_hand.gripper` (≤ 1.725 rad).
+- Run pip with `env -u PYTHONPATH`: with ROS sourced, `pip check` and `pip freeze` see ROS's packages too.
 - MoveIt's SUCCESS means the trajectory time is over, not that the joints arrived: check `/joint_states` (ADR 0004).
 - A YAML value under the node name beats a launch dict one (under `/**`): no `arm`, `video_path`, `preview` in YAML.
 

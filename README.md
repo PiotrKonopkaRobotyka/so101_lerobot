@@ -6,7 +6,6 @@ Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation onl
 - `so101_hand/`, `so101_hand_ros/` — hand teleoperation from the webcam: closing the hand closes the simulated
   gripper, moving it moves the arm in its plane. Hand tracking (MediaPipe), measures, calibration, filters,
   kinematics and the clutch as a plain Python package with `pytest` tests, and a thin ROS 2 node (`hand_teleop`).
-- `lerobot_teleop/run_teleop.py` — keyboard teleoperation of the simulated arm through LeRobot.
 - `lerobot_mimic/` — legacy: the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
 
 ## Workspace
@@ -16,8 +15,7 @@ so101_ws/
 ├── .venv/                 # Python env (not in git)
 └── src/
     ├── so101_lerobot/     # this repo
-    ├── lerobot_ws/        # Pavankv92/lerobot_ws (Apache-2.0): description, controllers, MoveIt
-    └── lerobot-ros/       # ycheng517/lerobot-ros (Apache-2.0): LeRobot ↔ ROS 2 bridge
+    └── lerobot_ws/        # Pavankv92/lerobot_ws (Apache-2.0): description, controllers, MoveIt
 ```
 
 Third-party repos are not copied here; they are pinned in `so101_lerobot.repos`:
@@ -39,9 +37,7 @@ touch .venv/COLCON_IGNORE
 .venv/bin/pip install -r src/so101_lerobot/requirements-lock.txt \
                       -r src/so101_lerobot/requirements.txt \
                       -c src/so101_lerobot/constraints.txt
-.venv/bin/pip install --no-deps -e src/lerobot-ros/lerobot_robot_ros \
-                                -e src/lerobot-ros/lerobot_teleoperator_devices \
-                                -e src/so101_lerobot/so101_hand
+.venv/bin/pip install --no-deps -e src/so101_lerobot/so101_hand
 ```
 
 The hand node needs MediaPipe's Gesture Recognizer model (8.4 MB) in `$DATA_DIR/models`: the Hand Landmarker and a
@@ -55,7 +51,9 @@ curl -L -o ~/data/models/gesture_recognizer.task \
 ```
 
 - `requirements.txt` — direct dependencies of these scripts.
-- `requirements-lock.txt` — full pinned set (LeRobot, torch CUDA 12.8, …) without ROS packages.
+- `requirements-lock.txt` — full pinned set (LeRobot 0.7, so101-nexus 0.11.0 with MuJoCo, torch CUDA 12.8, …)
+  without ROS packages: `pip freeze --local --exclude-editable` run with `env -u PYTHONPATH`, because ROS's
+  `PYTHONPATH` makes pip list its packages too.
 - `constraints.txt` — keeps `opencv-python` and `opencv-contrib-python` (pulled in by MediaPipe) at a version
   compatible with ROS 2 Jazzy.
 - `setuptools<80` is required by colcon.
@@ -83,12 +81,6 @@ of 10 Hz, ADR 0004): a joint reaches a goal in about 0.3 s instead of about 2 s.
 
 The arm has 5 joints, so the RViz interactive marker (a full 6-DoF pose for KDL IK) rarely finds a solution:
 set the goal with "Goal State" or tick "Approx IK Solutions" in the Planning tab.
-
-Keyboard teleoperation (simulation running, venv active):
-
-```bash
-python src/so101_lerobot/lerobot_teleop/run_teleop.py
-```
 
 ## Hand → gripper (stage 1)
 

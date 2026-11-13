@@ -3,6 +3,8 @@
 - Status: Accepted
 - Date: 2026-10-13
 - Supersedes: the order chosen on 2026-10-11 (so101-nexus as the MVP simulator, hand tracking in M4)
+- Amended by ADR 0009 (2026-11-13): the simulator for data is so101-nexus, and the keyboard fallback
+  (`lerobot_teleop/`) is dropped
 
 ## Context
 
