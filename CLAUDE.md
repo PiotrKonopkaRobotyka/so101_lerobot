@@ -48,8 +48,8 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - 0006 Hand from the front over the workspace from above: absolute XY (the base turns), top-down grasp, `space` pauses.
 - 0007 Gripper height from a key: one-camera depth is precise with a steady pose, but pose changes read as ≥ 10 cm.
 - 0008 Gripper open or closed: a fist / an open palm (gestures) decides at once, else the aperture with hysteresis.
-- 0009 (proposed) Simulator: so101-nexus 0.11.0 (MuJoCo) `PickAndPlace-v2` from our loop; against the Gazebo URDF the
-  wrist roll is +0.0487 rad and `so101_hand` heights are 32.5 mm below MuJoCo's floor.
+- 0009 Simulator: so101-nexus 0.11.0 (MuJoCo) `PickAndPlace-v2` from our loop, a third package here, one venv on
+  LeRobot 0.7; against the Gazebo URDF the wrist roll is +0.0487 rad, `so101_hand` heights 32.5 mm below MuJoCo's floor.
 
 ## Pitfalls
 

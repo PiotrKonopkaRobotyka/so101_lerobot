@@ -1,6 +1,6 @@
 # 0009. Simulator for data collection: so101-nexus (MuJoCo)
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-13
 - Follows: ADR 0001 (decision 3), ADR 0005
 
@@ -51,9 +51,9 @@ results in `~/data/so101_nexus_spike`.
    MuJoCo's world without rotation, shifted by (+15.8, −20.8, −32.5) mm. No `LeaderProtocol`, no Gradio app.
 3. **Code and venv:** the MuJoCo teleoperation and recording become a third plain-Python package in this repository,
    next to `so101_hand` (no ROS, `pip install -e`). The workspace venv moves to LeRobot 0.7 and so101-nexus 0.11.0;
-   lerobot-ros and `lerobot_teleop/` (the Gazebo keyboard teleoperation) leave the repository at a tag. Alternative:
-   a separate Python project in `~/code/projects/` with its own venv, which keeps the ROS venv as it is but splits the
-   release (M5) over two repositories.
+   lerobot-ros and `lerobot_teleop/` (the Gazebo keyboard teleoperation) leave the repository at a tag. A separate
+   Python project in `~/code/projects/` with its own venv would keep the ROS venv as it is, but split the release (M5)
+   over two repositories.
 
 ## Consequences
 
@@ -68,4 +68,6 @@ results in `~/data/so101_nexus_spike`.
   with the simulation in real time.
 - The published demonstrations are no training data for us (no release, an older state vector); they stay a
   reference for the scene and the schema.
+- The keyboard teleoperation through LeRobot, kept as a fallback by ADR 0001, goes with lerobot-ros: the hand is the
+  only teleoperation, in Gazebo and in MuJoCo.
 - Gazebo and ROS 2 stay for M1–M2 (ADR 0001); the MuJoCo path uses neither.
