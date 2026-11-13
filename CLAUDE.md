@@ -48,6 +48,8 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - 0006 Hand from the front over the workspace from above: absolute XY (the base turns), top-down grasp, `space` pauses.
 - 0007 Gripper height from a key: one-camera depth is precise with a steady pose, but pose changes read as ≥ 10 cm.
 - 0008 Gripper open or closed: a fist / an open palm (gestures) decides at once, else the aperture with hysteresis.
+- 0009 Simulator: so101-nexus 0.11.0 (MuJoCo) `PickAndPlace-v2` from our loop, a third package here, one venv on
+  LeRobot 0.7; against the Gazebo URDF the wrist roll is +0.0487 rad, `so101_hand` heights 32.5 mm below MuJoCo's floor.
 
 ## Pitfalls
 
@@ -62,5 +64,5 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 ## Current milestone
 
 M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). ROB-35 built the frontal mapping (ADR 0006,
-the height from a key, ADR 0007, the gripper from gestures, ADR 0008), checked with the webcam on 2026-11-13; next
-ROB-36 (sector from the IK) or ROB-17 (MuJoCo).
+the height from a key, ADR 0007, the gripper from gestures, ADR 0008), checked with the webcam on 2026-11-13. ROB-17
+confirmed so101-nexus (ADR 0009, spike code in `~/code/experiments/so101_nexus`); next ROB-38 (the hand in its scene).
