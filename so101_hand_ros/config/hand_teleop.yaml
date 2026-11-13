@@ -1,14 +1,16 @@
 # Parameters of the hand_teleop node. Floats need a decimal point: ROS 2 rejects 10 for a float parameter.
 hand_teleop:
   ros__parameters:
-    model_path: ""        # empty: $DATA_DIR/models/hand_landmarker.task (default ~/data/models)
+    model_path: ""        # empty: $DATA_DIR/models/gesture_recognizer.task (default ~/data/models)
     camera_index: 0       # /dev/video0
     # video_path (a video file instead of the webcam) and preview (the window) come from the launch arguments
     # video:= and preview:=; a value here would override them (launch writes its parameters under /**)
 
-    # Aperture (thumb-index gap / palm length) of the closed and the open hand, seen from the front (ADR 0006).
-    # They are the gripper's two thresholds (ADR 0008): it closes when the smoothed aperture falls to aperture_closed,
-    # opens when it rises to aperture_open, and keeps its state in between.
+    # The gripper (ADR 0008): a fist closes it and an open palm opens it at once (MediaPipe's gestures); any other
+    # hand, such as the closing "beak" (the thumb on the fingertips), is left to the aperture (thumb-index gap / palm
+    # length) of the closed and the open hand, seen from the front (ADR 0006), as two thresholds: the gripper closes
+    # when the smoothed aperture falls to aperture_closed, opens when it rises to aperture_open, and keeps its state
+    # in between.
     # Press c / o in the preview to measure yours; the node prints the values to paste here. These: my hand in the
     # webcam test of 2026-11-12, the fist median 0.19 (90 % below 0.29), the relaxed open hand (fingers together)
     # median 0.77 (90 % above 0.65). The hand spread wide in the ROB-34 recording gave 1.09-1.21, which the relaxed

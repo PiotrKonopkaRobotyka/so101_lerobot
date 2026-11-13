@@ -30,7 +30,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from so101_hand.calibration import Calibration
 from so101_hand.filters import HoldingEma
-from so101_hand.gripper import CLOSED_RAD, OPEN_RAD
+from so101_hand.gripper import CLOSED_RAD, OPEN_RAD, next_state
 from so101_hand.kinematics import PAN_AXIS, PLANE_OFFSET, TCP_IN_GRIPPER, Point, forward3d, inverse_steepest
 from so101_hand.measures import INDEX_TIP, MIDDLE_MCP, THUMB_TIP, WRIST, aperture, palm_centre
 from so101_hand.teleop import Bounds, Follower, TableMap
@@ -64,6 +64,7 @@ class HandTeleopNode(Node):
         hold_s = self.declare_parameter("hold_s", 0.5).value
         self.filter = HoldingEma(alpha=alpha, hold_s=hold_s)  # the aperture
         self.gripper_open = True  # the gripper's state (ADR 0008); it starts open
+        self.gripper_by = "start"  # what decided the state: a gesture or "aperture"
         self.palm_filters = (HoldingEma(alpha=alpha, hold_s=hold_s), HoldingEma(alpha=alpha, hold_s=hold_s))
         self.arm = self.declare_parameter("arm", False).value
         self.levels = {  # TCP heights in metres; z toggles between them
@@ -133,8 +134,13 @@ class HandTeleopNode(Node):
             if ap is not None:
                 self.recent.append((t_s, ap))
             smoothed = self.filter.update(t_s, ap)  # the aperture's EMA, held while the hand is briefly lost
-            if smoothed is not None:
-                self.gripper_open = self.calibration.is_open(smoothed, self.gripper_open)
+            if self.hand is not None:  # without a hand the state stays
+                was_open = self.gripper_open
+                self.gripper_open, self.gripper_by = next_state(
+                    was_open, self.hand.gesture, self.hand.score, smoothed, self.calibration
+                )
+                if self.gripper_open != was_open:  # at once, not with the next regular goal (up to 1 / rate_hz)
+                    self.send_goal(OPEN_RAD if self.gripper_open else CLOSED_RAD)
             target = self.arm_target(t_s) if self.arm else None
             # None: the hand is lost for longer than hold_s (or the arm is paused), so no goals; the controller
             # keeps the last one. 0.9: frames arrive with jitter; without the margin a frame 1 ms early would wait.
@@ -262,12 +268,14 @@ class HandTeleopNode(Node):
         view = cv2.flip(frame, 1)  # mirrored like a selfie; drawn before the flip, so the lines stay on the hand
         if smoothed is None:
             gripper = "hand lost: the gripper stays"
-        elif self.gripper_open:  # the state, and the threshold the smoothed aperture must reach to change it
-            gripper = f"gripper OPEN (closes at {self.calibration.closed:.2f})"
         else:
-            gripper = f"gripper CLOSED (opens at {self.calibration.open:.2f})"
+            gripper = f"gripper {'OPEN' if self.gripper_open else 'CLOSED'} by {self.gripper_by}"
+            if self.gripper_by == "aperture":  # the threshold the smoothed aperture must reach to change it
+                change, at = ("closes", self.calibration.closed) if self.gripper_open else ("opens", self.calibration.open)
+                gripper += f" ({change} at {at:.2f})"
+        hand = self.hand
         lines = [
-            f"aperture {ap:.2f}" if ap is not None else "no hand",
+            f"aperture {ap:.2f}, gesture {hand.gesture} {hand.score:.2f}" if hand is not None else "no hand",
             gripper,
             f"calibration (c / o): closed {self.calibration.closed:.2f}, open {self.calibration.open:.2f}",
         ]

@@ -44,12 +44,14 @@ touch .venv/COLCON_IGNORE
                                 -e src/so101_lerobot/so101_hand
 ```
 
-The hand node needs the MediaPipe Hand Landmarker model (7.8 MB, Apache-2.0) in `$DATA_DIR/models`:
+The hand node needs MediaPipe's Gesture Recognizer model (8.4 MB) in `$DATA_DIR/models`: the Hand Landmarker and a
+classifier of the whole hand's gesture (ADR 0008). MediaPipe is Apache-2.0; the model card names no license for the
+model file, so it is downloaded, not kept in the repository.
 
 ```bash
 mkdir -p ~/data/models
-curl -L -o ~/data/models/hand_landmarker.task \
-  https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task
+curl -L -o ~/data/models/gesture_recognizer.task \
+  https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/latest/gesture_recognizer.task
 ```
 
 - `requirements.txt` — direct dependencies of these scripts.
@@ -97,21 +99,23 @@ upstream controller configuration, so the gripper is about 1 s behind; now it is
 
 Close your hand to close the simulated gripper, open it to open the gripper. The pose: the open right hand in front
 of your chest, palm to the camera (ADR 0006; the GIF shows the earlier side view of ADR 0003); any view where the
-camera sees the thumb and the index finger works. The gripper is open or closed, never in between (ADR 0008): it
-closes when the thumb–index gap falls to the closed pose, opens when it rises to the open pose, and keeps its state
-between them, so a trembling hand or a fist turned thumb up does not move the jaws. To close it, make a fist towards
-the camera or put the thumb on the index finger.
+camera sees the thumb and the index finger works. The gripper is open or closed, never in between (ADR 0008): a
+fist closes it and an open palm opens it at once, whatever the thumb does (MediaPipe's gesture recognizer). Any
+other hand, such as the "beak" (the thumb on the fingertips), is left to the thumb–index gap: the gripper closes at
+the closed pose, opens at the open pose and keeps its state between them, so a trembling hand does not move it.
 
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true
 ```
 
 Gazebo starts first; the hand node and its preview window start once the controllers are active. The preview is
-mirrored: the red line is the thumb–index gap, the white one the palm length it is divided by; the second line is
-the gripper's state and the threshold that changes it, e.g. `gripper CLOSED (opens at 0.70)`.
+mirrored: the red line is the thumb–index gap, the white one the palm length it is divided by. The first line shows
+the gap and the gesture with its score, the second the gripper's state and what decided it, e.g.
+`gripper CLOSED by Closed_Fist` or `gripper OPEN by aperture (closes at 0.36)`.
 
-- Calibration: hold the closed hand still for a second and press `c`, then the open hand and `o`. The node prints
-  `aperture_closed` and `aperture_open`, the two thresholds; to keep them, put them in
+- Calibration of the gap (for the hands that are neither a fist nor an open palm): hold the closed hand still for a
+  second and press `c`, then the open hand and `o`. The node prints `aperture_closed` and `aperture_open`, the two
+  thresholds; to keep them, put them in
   `so101_hand_ros/config/hand_teleop.yaml` (installed as a symlink, no rebuild needed). `q` closes the node; Gazebo
   keeps running.
 - Hand lost for more than `hold_s` (0.5 s): the node stops sending goals and the gripper stays where it is.
@@ -169,7 +173,8 @@ python -m pytest src/so101_lerobot/so101_hand
 GitHub Actions runs these tests on every pull request and push to `main` (`.github/workflows/tests.yml`),
 without ROS or MediaPipe: the tracker tests are skipped there.
 
-Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `hand_landmarker.task`, `yolo26m-pose.pt`.
+Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `gesture_recognizer.task`,
+`yolo26m-pose.pt`.
 
 ## Limitations
 
