@@ -209,6 +209,24 @@ gripper is going (green while following). The simulation runs in real time with 
 - MuJoCo's world and so101_hand's frame differ by a shift (`so101_mujoco/world.py`): the Gazebo base frame lies
   32.5 mm below MuJoCo's floor, and so101-nexus's wrist roll is the Gazebo joint 5 + 0.0487 rad.
 
+### Recording the demonstrations
+
+ADR 0010. With `--record`, every attempt becomes an episode of a LeRobot v3 dataset in the real SO-101 follower's
+schema (joints in degrees, the gripper 0–100, the wrist and overhead cameras at 30 fps):
+
+```bash
+so101_mujoco --record <hf_user>/so101_pick_place
+```
+
+- An attempt starts with your first `p` and is saved 1 s after the success (released on the disc, the gripper
+  raised); the next cube follows. `r` gives an attempt up: it is discarded and counts as a failure; before `p` it
+  only skips the scene. Saving encodes the two videos in a few seconds.
+- `q` finishes: an attempt in progress is discarded, and the dataset is closed. The same command later adds to it,
+  with new cube positions.
+- The dataset goes to `$HF_HOME/lerobot/<repo_id>` (`~/data/huggingface/lerobot/…`), outside git; every attempt is
+  a row of `$DATA_DIR/so101_mujoco/so101_pick_place_attempts.csv` (saved or discarded, seconds, frames), from which
+  the metrics come.
+
 ## Limitations
 
 Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006, ADR 0007):

@@ -19,7 +19,8 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - `so101_hand_ros/` — node `hand_teleop`: webcam (or `video:=`) → `so101_hand.session` → gripper and arm goals (joint
   5 at 0); p or `~/clutch` follows/pauses, space the height; parameters in `config/hand_teleop.yaml` (= `Settings`).
 - `so101_mujoco/` — plain Python like `so101_hand`: the same session drives so101-nexus's PickAndPlace-v2 (`app`,
-  command `so101_mujoco`); `world` frame and joint offsets, `scene` env, heights and the operator's two views.
+  command `so101_mujoco`); `world` frame and joint offsets, `scene` env at 30 Hz, heights and the operator's two
+  views; `record` the LeRobot dataset (`--record`, ADR 0010).
 - `lerobot_mimic/` — legacy YOLO pose (AGPL-3.0) arm mimicking, J2/J3 only; kept as an example.
 
 ## Third-party (pinned in `so101_lerobot.repos` or `requirements.txt`, never modified)
@@ -54,6 +55,8 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - 0008 Gripper open or closed: a fist / an open palm (gestures) decides at once, else the aperture with hysteresis.
 - 0009 Simulator: so101-nexus 0.11.0 (MuJoCo) `PickAndPlace-v2` from our loop, a third package here, one venv on
   LeRobot 0.7; against the Gazebo URDF the wrist roll is +0.0487 rad, `so101_hand` heights 32.5 mm below MuJoCo's floor.
+- 0010 Dataset: LeRobot v3, 30 fps, `so101_follower` units (degrees, gripper 0–100), wrist (fixed) + overhead cameras;
+  an episode = an attempt from the first `p` to 1 s after the success; attempts in `<name>_attempts.csv`.
 
 ## Pitfalls
 
@@ -70,5 +73,6 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). ROB-35 built the frontal mapping (ADR 0006,
 the height from a key, ADR 0007, the gripper from gestures, ADR 0008), checked with the webcam on 2026-11-13. ROB-17
-confirmed so101-nexus (ADR 0009). ROB-38: one venv on LeRobot 0.7, the TCP between the open jaws, `so101_mujoco`
-checked on recorded videos; next the webcam test (several pick and places, their times), then ROB-39 (recording).
+confirmed so101-nexus (ADR 0009). ROB-38 (done 2026-11-14): one venv on LeRobot 0.7, the TCP between the open jaws,
+`so101_mujoco`, 7 of 7 webcam pick and places. Now ROB-39: ~50 demonstrations with `--record` (ADR 0010); then
+ROB-40 (ACT) and ROB-46 (release).
