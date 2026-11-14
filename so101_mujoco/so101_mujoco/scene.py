@@ -16,10 +16,17 @@ import so101_nexus.mujoco  # noqa: F401  (registers the MuJoCo* environment ids)
 from so101_hand.session import Settings
 from so101_hand.teleop import Bounds
 from so101_mujoco.world import FLOOR_HEIGHT, PAN_AXIS_WORLD, to_world
-from so101_nexus.config import SO101_JOINT_NAMES, PickAndPlaceV2Config
+from so101_nexus.config import SO101_JOINT_NAMES, PhysicsConfig, PickAndPlaceV2Config
+from so101_nexus.observations import OverheadCamera, WristCamera
 
 ENV_ID = "MuJoCoPickAndPlace-v2"
-MAX_EPISODE_S = 300.0  # so101-nexus ends an episode after 1024 steps (20 s); the operator needs more
+FPS = 30  # one env.step per dataset frame (ADR 0010): the control period is 1 / FPS, in 14 physics steps
+MAX_EPISODE_S = 300.0  # so101-nexus ends an episode after 1024 steps (34 s at 30 Hz); the operator needs more
+CAMERA_SIZE = (640, 480)  # the recorded cameras, as so101-nexus's datasets
+# The wrist camera fixed at the middle of so101-nexus's random ranges, like a camera mounted on a real arm: no
+# domain randomization for a first policy from 50 demonstrations (ADR 0010)
+WRIST_CAMERA = dict(fov_deg_range=(75.0, 75.0), pitch_deg_range=(-17.2, -17.2), pos_x_noise=0.0, pos_y_noise=0.0,
+                    pos_z_noise=0.0)
 HOVER_ABOVE_FLOOR = 0.07  # m: the TCP between grasps, well above the 25 mm cube
 GRASP_ABOVE_FLOOR = 0.0125  # m: the TCP at the cube's centre (a top-down grasp lifts it from 8 to 18 mm)
 LOWEST_ABOVE_FLOOR = 0.008  # m: the jaw tips, 7 mm below the TCP, stay off the floor
@@ -40,19 +47,31 @@ def mujoco_settings() -> Settings:
     )
 
 
-def make_env(bounds: Bounds = Bounds()) -> gym.Env:
-    """PickAndPlace-v2 with the cube and the disc inside `bounds` (reach and pan around the pan axis); an episode
-    runs on after a success, which `info["success"]` reports at every step."""
+def make_env(bounds: Bounds = Bounds(), cameras: bool = False) -> gym.Env:
+    """PickAndPlace-v2 with the cube and the disc inside `bounds` (reach and pan around the pan axis), stepped at
+    FPS; an episode runs on after a success, which `info["success"]` reports at every step. With `cameras`, each
+    step also renders the wrist and the overhead camera into the observation (`obs_mode` "visual") and puts the
+    full state in `info["privileged_state"]`."""
     if bounds.pan[0] != -bounds.pan[1]:
         raise ValueError("so101-nexus samples a sector symmetric about straight ahead")
+    period = 1.0 / FPS
+    extra = {}
+    if cameras:
+        width, height = CAMERA_SIZE
+        defaults = PickAndPlaceV2Config().observations or []
+        extra = dict(obs_mode="visual", observations=[
+            *defaults, WristCamera(width=width, height=height, **WRIST_CAMERA), OverheadCamera(width=width, height=height)
+        ])
     config = PickAndPlaceV2Config(
         spawn_center=PAN_AXIS_WORLD,
         spawn_min_radius=bounds.reach[0],
         spawn_max_radius=bounds.reach[1],
         spawn_angle_half_range_deg=math.degrees(bounds.pan[1]),
         terminate_on_success=False,
+        physics=PhysicsConfig(control_period_s=period, timestep_s=period / 14),
+        **extra,
     )
-    env = gym.make(ENV_ID, config=config, max_episode_steps=int(MAX_EPISODE_S / 0.02))
+    env = gym.make(ENV_ID, config=config, max_episode_steps=int(MAX_EPISODE_S * FPS))
     env.reset(seed=0)
     return env
 
