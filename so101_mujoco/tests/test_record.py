@@ -91,22 +91,25 @@ def test_an_attempt_is_saved_in_the_so101_schema_and_a_discarded_one_is_not(tmp_
     assert record.next_seed(tmp_path / "attempts.csv") == 4
 
 
-def test_a_later_session_adds_episodes_to_the_dataset(tmp_path):
+def test_a_later_session_adds_episodes_to_the_dataset(tmp_path, monkeypatch):
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
+    # as `so101_mujoco --record` runs it: no root, so the dataset lives in $HF_HOME/lerobot/<repo_id>; here a
+    # temporary one, in every module that keeps its own copy of the constant
+    for module in ("lerobot.utils.constants", "lerobot.datasets.dataset_metadata"):
+        monkeypatch.setattr(f"{module}.HF_LEROBOT_HOME", tmp_path)
     env = make_env(cameras=True)
     sim = env.unwrapped
     names = privileged_state_feature_names(sim.config.observations)
     gripper = (float(env.action_space.low[5]), float(env.action_space.high[5]))
-    root = tmp_path / "dataset"
     steps, _ = scripted_pick_and_place(env, seed=5)
     for session_steps in (steps[:40], steps[40:70]):  # two sessions, one episode each
-        recorder = record.Recorder(record.open_dataset("local/so101_test", names, root=root), gripper,
+        recorder = record.Recorder(record.open_dataset("local/so101_test", names), gripper,
                                    sim.task_description, tmp_path / "attempts.csv")
         for step in session_steps:
             recorder.add(*step)
         recorder.save(seed=5, seconds=1.0)
         recorder.close()
     env.close()
-    dataset = LeRobotDataset("local/so101_test", root=root)
+    dataset = LeRobotDataset("local/so101_test", root=tmp_path / "local/so101_test")
     assert dataset.meta.total_episodes == 2 and len(dataset) == 70
