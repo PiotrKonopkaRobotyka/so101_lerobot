@@ -178,6 +178,13 @@ Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `gestu
 
 ## Pick and place in MuJoCo (M3)
 
+![Pick and place in MuJoCo with the hand: the webcam preview, the scene from above and from the robot's right](docs/media/mujoco_pick_and_place.gif)
+
+The hand brings the gripper over the cube, `space` lowers it, a fist closes the jaws, `space` raises them, the hand
+carries the cube over the disc, `space` lowers it and the open hand releases it: a success in 22.6 s (real time,
+2026-11-14). In that first webcam test 7 of 7 pick and places succeeded (episodes skipped to look around not
+counted), in 22.6–92.8 s; the last five took 28.5 s on average (22.6–37.2 s).
+
 ADR 0009. The same hand teleoperation drives SO-101 in MuJoCo, without ROS: so101-nexus's `PickAndPlace-v2`
 (a 25 mm cube and a blue disc of 5 cm radius, both placed inside the workspace sector). Pick the cube up and put it
 on the disc, then open your hand and raise the gripper: the task counts a success when the cube rests on the disc,
