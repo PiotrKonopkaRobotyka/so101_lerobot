@@ -227,6 +227,14 @@ so101_mujoco --record <hf_user>/so101_pick_place
   a row of `$DATA_DIR/so101_mujoco/so101_pick_place_attempts.csv` (saved or discarded, seconds, frames), from which
   the metrics come.
 
+The dataset (2026-11-14, two sessions, ROB-39): 50 episodes, 31,460 frames (17.5 min at 30 fps, 171 MB), the cube
+and the disc from seeds 0–55 inside the workspace sector.
+
+- Teleoperation success rate: 50 of 56 attempts (89 %); the 6 failures were given up with `r`.
+- Time per pick and place, from the first `p` to the success: 20.0 s on average (SD 10.0 s), median 17.8 s, half of
+  them within 13.7–22.4 s, 7.7–59.6 s in all. The median fell from 20.1 s in the first session (20 episodes) to
+  16.4 s in the second (30). In the longest (59.6 s) the cube started under the arm at home, hidden from above.
+
 ## ACT policy (M4)
 
 ROB-40. LeRobot's ACT (Action Chunking with Transformers) learns from the demonstrations: from the two cameras and
@@ -243,7 +251,7 @@ HF_HUB_OFFLINE=1 lerobot-train \
     "observation.images.wrist": {"type": "VISUAL", "shape": [3, 480, 640]},
     "observation.images.overhead": {"type": "VISUAL", "shape": [3, 480, 640]}}' \
   --accelerator.mixed_precision=bf16 \
-  --output_dir=$HOME/data/models/so101_act --steps=20000 --save_freq=5000
+  --output_dir=$HOME/data/models/so101_act --steps=50000 --save_freq=10000
 ```
 
 - `--policy.input_features` lists the policy's inputs. Without it LeRobot also gives ACT
@@ -263,8 +271,8 @@ so101_mujoco_eval <the same> --episodes 3 --video act.mp4                      #
 
 - Every episode starts as the recorded ones: a new cube and disc (seeds from 1000; the recordings' start at 0), the
   arm at home, the gripper open. Each step (30 Hz) the policy gets the two cameras and the joints in the dataset's
-  units and returns the joint targets; an episode ends with the task's success or after 60 s, twice the longest
-  demonstration.
+  units and returns the joint targets; an episode ends with the task's success or after 60 s (the demonstrations took 7.7–59.6 s,
+  median 17.8 s).
 - Each episode is a row of `$DATA_DIR/so101_mujoco/eval.csv` (time, checkpoint, seed, success, seconds).
 - `--device cpu` runs the policy on the CPU, e.g. while a training uses the GPU (about 75 simulated steps/s).
 

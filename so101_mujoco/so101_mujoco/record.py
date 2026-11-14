@@ -42,7 +42,8 @@ def open_dataset(repo_id: str, state_names: list[str], root: Path | None = None)
     from lerobot.utils.constants import HF_LEROBOT_HOME
 
     writing = dict(image_writer_threads=4 * len(CAMERAS), rgb_encoder=RGBEncoderConfig(vcodec="h264"))
-    if (Path(root) if root else HF_LEROBOT_HOME / repo_id).exists():
+    root = Path(root) if root else HF_LEROBOT_HOME / repo_id  # LeRobot 0.7 resumes only with an explicit root
+    if root.exists():
         dataset = LeRobotDataset.resume(repo_id, root=root, **writing)
         if dataset.fps != FPS or dataset.features.get("action", {}).get("names") != JOINTS:
             raise ValueError(f"{repo_id} was recorded with another schema or rate")

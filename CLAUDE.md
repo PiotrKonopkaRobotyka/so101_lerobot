@@ -77,7 +77,7 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Current milestone
 
-M3 ends and M4 begins (exit criteria: ADR 0005). ROB-39: recording merged (PR #15), 20 of ~50 demonstrations
-(teleoperation 20/24 = 83 %), ~30 more to record (Todo). ROB-40 pilot (2026-11-14, branch, no PR yet): ACT on the 20
-episodes, 20k steps in 86 min: 5k 0/10, 10k 2/50, 15k 3/50, 20k 0/50 in MuJoCo (loss 0.11: it fits the demos, the
-grasp misses); an outcome can differ between runs of one seed. Next: the rest of ROB-39, ROB-40 on ~50 episodes, ROB-46.
+M3 done (2026-11-14, exit criteria: ADR 0005): the hand drives SO-101 in MuJoCo (ROB-38, ADR 0006–0009) and ROB-39
+recorded 50 demonstrations (ADR 0010): teleoperation 50 of 56 (89 %), 20.0 s per pick and place on average. Now M4,
+ROB-40: the pilot on 20 episodes (20k steps, 86 min) reached 0–3 of 50 in MuJoCo (it fits the demos, the grasp
+misses; one seed's outcome can differ between runs); ACT on the 50 episodes trains 50k steps. Then ROB-46 (release).
