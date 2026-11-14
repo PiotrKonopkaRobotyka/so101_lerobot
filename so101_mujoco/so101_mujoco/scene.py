@@ -13,9 +13,9 @@ import mujoco
 import numpy as np
 
 import so101_nexus.mujoco  # noqa: F401  (registers the MuJoCo* environment ids)
-from so101_hand.session import Settings
+from so101_hand.session import Session, Settings
 from so101_hand.teleop import Bounds
-from so101_mujoco.world import FLOOR_HEIGHT, PAN_AXIS_WORLD, to_world
+from so101_mujoco.world import FLOOR_HEIGHT, PAN_AXIS_WORLD, joint_targets, to_world
 from so101_nexus.config import SO101_JOINT_NAMES, PhysicsConfig, PickAndPlaceV2Config
 from so101_nexus.observations import OverheadCamera, WristCamera
 
@@ -80,6 +80,26 @@ def joint_addresses(model: mujoco.MjModel) -> list[int]:
     """qpos addresses of so101-nexus's six joints (shoulder_pan … gripper), in the order of its actions."""
     ids = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name) for name in SO101_JOINT_NAMES]
     return [int(model.jnt_qposadr[i]) for i in ids]
+
+
+def home_pose() -> tuple[tuple[float, float, float, float], float]:
+    """Where every episode starts: joints 1–4 of the teleoperation's home pose and its gripper, open."""
+    session = Session(mujoco_settings())
+    return session.go_home(), session.gripper_rad
+
+
+def reset_at_home(env: gym.Env, seed: int, arm: tuple[float, float, float, float], gripper_rad: float):
+    """A new episode: so101-nexus places the cube and the disc from `seed`, and the arm stands still at the joints
+    `arm` (1–4) with the gripper at `gripper_rad`. Returns the observation and the info of one step there."""
+    env.reset(seed=seed)
+    sim = env.unwrapped
+    action = joint_targets(arm, gripper_rad)
+    sim.data.qpos[joint_addresses(sim.model)] = action
+    sim.data.qvel[:] = 0.0
+    sim.data.ctrl[: len(action)] = action
+    mujoco.mj_forward(sim.model, sim.data)
+    obs, _, _, _, info = env.step(action)
+    return obs, info
 
 
 def sector_outline(bounds: Bounds, z: float = 0.0005, n: int = 40) -> np.ndarray:

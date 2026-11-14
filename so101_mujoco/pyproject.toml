@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "so101_mujoco"
 version = "0.1.0"
-description = "Hand teleoperation of SO-101 in so101-nexus's MuJoCo pick and place: plain Python, no ROS"
+description = "SO-101 in so101-nexus's MuJoCo pick and place: hand teleoperation, recording, evaluation (no ROS)"
 requires-python = ">=3.10"
 dependencies = ["numpy", "so101_hand", "so101-nexus==0.11.0"]
 
@@ -14,6 +14,7 @@ dev = ["pytest"]
 
 [project.scripts]
 so101_mujoco = "so101_mujoco.app:main"
+so101_mujoco_eval = "so101_mujoco.evaluate:main"
 
 [tool.setuptools]
 packages = ["so101_mujoco"]

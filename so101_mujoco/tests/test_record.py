@@ -9,48 +9,28 @@ pytest.importorskip("so101_nexus")
 if os.environ.get("MUJOCO_GL") == "disable":
     pytest.skip("the recorded cameras need rendering", allow_module_level=True)
 
-from so101_hand.gripper import CLOSED_RAD, OPEN_RAD  # noqa: E402
-from so101_hand.kinematics import Point  # noqa: E402
-from so101_hand.session import Session  # noqa: E402
+from scripted import pick_and_place_plan  # noqa: E402  (tests/scripted.py)
 from so101_mujoco import record  # noqa: E402
-from so101_mujoco.scene import FPS, joint_addresses, make_env, mujoco_settings  # noqa: E402
-from so101_mujoco.world import joint_targets, to_table  # noqa: E402
+from so101_mujoco.scene import FPS, joint_addresses, make_env  # noqa: E402
 from so101_nexus.observations import privileged_state_feature_names  # noqa: E402
 
 
 def scripted_pick_and_place(env, seed: int):
-    """Steps (observation, state, full state, action) of a scripted top-down pick and place, until 1 s after the
+    """Steps (observation, state, full state, action) of the scripted top-down pick and place, until 1 s after the
     success; the success's step index (or None)."""
     env.reset(seed=seed)
     sim = env.unwrapped
-    addresses, settings = joint_addresses(sim.model), mujoco_settings()
-    session = Session(settings)
-    session.joints = tuple(float(sim.data.qpos[a]) for a in addresses[:4])
-    cube, disc = to_table(sim._get_object_pose()[:3]), to_table(sim._get_target_pos())
-    obs, _, _, _, info = env.step(joint_targets(session.solve(Point(cube.forward, cube.right, settings.hover_height)),
-                                                OPEN_RAD))
-    plan = []  # (point over the table, gripper, steps)
-    for (forward, right), down_gripper, up_gripper in (((cube.forward, cube.right), OPEN_RAD, CLOSED_RAD),
-                                                       ((disc.forward, disc.right), CLOSED_RAD, OPEN_RAD)):
-        plan.append((Point(forward, right, settings.hover_height), down_gripper, 30))
-        plan += [(Point(forward, right, h), down_gripper, 1) for h in np.linspace(settings.hover_height,
-                                                                                    settings.grasp_height, 20)]
-        plan.append((Point(forward, right, settings.grasp_height), up_gripper, 15))
-        plan += [(Point(forward, right, h), up_gripper, 1) for h in np.linspace(settings.grasp_height,
-                                                                                  settings.hover_height, 20)]
-    plan.append((plan[-1][0], OPEN_RAD, 60))
+    addresses = joint_addresses(sim.model)
+    first, *actions = pick_and_place_plan(env)
+    obs, _, _, _, info = env.step(first)
     steps, success = [], None
-    for point, gripper, n in plan:
-        q = session.solve(point)
-        session.arm_command = q
-        action = joint_targets(q, gripper)
-        for _ in range(n):
-            steps.append((obs, sim.data.qpos[addresses].copy(), info["privileged_state"], action))
-            obs, _, _, _, info = env.step(action)
-            if info["success"] and success is None:
-                success = len(steps)
-            if success is not None and len(steps) >= success + FPS:
-                return steps, success
+    for action in actions:
+        steps.append((obs, sim.data.qpos[addresses].copy(), info["privileged_state"], action))
+        obs, _, _, _, info = env.step(action)
+        if info["success"] and success is None:
+            success = len(steps)
+        if success is not None and len(steps) >= success + FPS:
+            return steps, success
     return steps, success
 
 

@@ -23,14 +23,15 @@ from pathlib import Path
 os.environ.setdefault("MUJOCO_GL", "egl")  # off-screen rendering on the GPU; set before mujoco is imported
 
 import cv2  # noqa: E402
-import mujoco  # noqa: E402
 import numpy as np  # noqa: E402
 
 from so101_hand import preview  # noqa: E402
 from so101_hand.kinematics import forward3d  # noqa: E402
 from so101_hand.session import Session  # noqa: E402
 from so101_hand.tracker import DEFAULT_MODEL, HandTracker  # noqa: E402
-from so101_mujoco.scene import GREEN, GREY, RED, Views, joint_addresses, make_env, mujoco_settings  # noqa: E402
+from so101_mujoco.scene import (  # noqa: E402
+    GREEN, GREY, RED, Views, joint_addresses, make_env, mujoco_settings, reset_at_home,
+)
 from so101_mujoco.world import joint_targets  # noqa: E402
 
 WINDOW = "so101_mujoco"
@@ -88,15 +89,8 @@ class App:
 
     def reset(self) -> None:
         """A new episode: so101-nexus places the cube and the disc; the arm starts at the home pose, paused."""
-        self.env.reset(seed=self.episode)
         q = self.session.go_home()
-        model, data = self.sim.model, self.sim.data
-        action = joint_targets(q, self.session.gripper_rad)
-        data.qpos[self.addresses] = action
-        data.qvel[:] = 0.0
-        data.ctrl[: len(action)] = action
-        mujoco.mj_forward(model, data)
-        self.obs, _, _, _, self.info = self.env.step(action)  # a fresh observation of the arm at home
+        self.obs, self.info = reset_at_home(self.env, self.episode, q, self.session.gripper_rad)
         self.session.joints = tuple(q)
         self.start_s = None  # the episode's clock starts with its first frame
         self.sim_s = 0.0
