@@ -5,9 +5,11 @@ the recorded ones do: the arm at home, the gripper open. Every step the policy g
 wrist and overhead cameras and the joints in the dataset's units (degrees, the gripper 0-100), and returns the joint
 targets in the same units for one simulation step (1/30 s). An episode ends with so101-nexus's success (the cube
 released on the disc) or after --max-seconds. Each episode is a row of $DATA_DIR/so101_mujoco/eval.csv; --video
-writes what the policy saw (overhead | wrist).
+writes what the policy saw (overhead | wrist). LeRobot's ACT runs each chunk of 100 actions to its end; with
+--temporal-ensemble it predicts a chunk every step and averages the overlapping ones (the ACT paper's inference).
 
-    so101_mujoco_eval POLICY_DIR [--episodes 50] [--seed 1000] [--max-seconds 60] [--video OUT.mp4] [--device cuda]
+    so101_mujoco_eval POLICY_DIR [--episodes 50] [--seed 1000] [--max-seconds 60] [--video OUT.mp4]
+                      [--temporal-ensemble 0.01] [--device cuda]
 
 POLICY_DIR is a pretrained_model directory written by lerobot-train: <output_dir>/checkpoints/last/pretrained_model.
 """
@@ -75,7 +77,7 @@ class LeRobotPolicy:
     """A policy saved by lerobot-train (its pretrained_model directory), with the pre- and postprocessor saved next
     to it: the normalization by the dataset's statistics, the batch dimension, the device."""
 
-    def __init__(self, path: Path, device: str = "cuda"):
+    def __init__(self, path: Path, device: str = "cuda", temporal_ensemble: float | None = None):
         import torch
         from lerobot.configs.policies import PreTrainedConfig
         from lerobot.policies import get_policy_class, make_pre_post_processors
@@ -83,6 +85,8 @@ class LeRobotPolicy:
         self.torch = torch
         config = PreTrainedConfig.from_pretrained(path)
         config.device = device
+        if temporal_ensemble is not None:  # ACT: a chunk every step, the overlapping actions weighted exp(-coeff·age)
+            config.temporal_ensemble_coeff, config.n_action_steps = temporal_ensemble, 1
         self.policy = get_policy_class(config.type).from_pretrained(path, config=config)
         self.preprocessor, self.postprocessor = make_pre_post_processors(
             config, pretrained_path=path, preprocessor_overrides={"device_processor": {"device": device}})
@@ -103,7 +107,7 @@ class LeRobotPolicy:
         return action.squeeze(0).numpy()
 
 
-def log(policy: Path, episode: Episode, path: Path = RESULTS) -> None:
+def log(policy: Path | str, episode: Episode, path: Path = RESULTS) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
     with path.open("a", newline="") as file:
@@ -121,11 +125,14 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1000, help="the first episode's seed (the recordings start at 0)")
     parser.add_argument("--max-seconds", type=float, default=60.0, help="an episode without a success ends then")
     parser.add_argument("--video", metavar="OUT.mp4", help="write the policy's cameras (overhead | wrist) to a video")
+    parser.add_argument("--temporal-ensemble", type=float, metavar="COEFF",
+                        help="ACT: a new chunk every step, averaged with the earlier ones (the ACT paper: 0.01)")
     parser.add_argument("--device", default="cuda", help="where the policy runs: cuda or cpu")
     args = parser.parse_args()
 
     path = args.policy.expanduser().resolve()  # checkpoints/last is a link: the CSV names the step
-    policy = LeRobotPolicy(path, args.device)
+    policy = LeRobotPolicy(path, args.device, args.temporal_ensemble)
+    label = path if args.temporal_ensemble is None else f"{path} (temporal ensemble {args.temporal_ensemble})"
     env = make_env(cameras=True)
     writer = None
     if args.video:
@@ -144,7 +151,7 @@ def main() -> None:
             on_step = write if writer is not None else None
             episode = run_episode(env, policy, seed, round(args.max_seconds * FPS), on_step)
             episodes.append(episode)
-            log(path, episode)
+            log(label, episode)
             done = sum(e.success for e in episodes)
             print(f"seed {seed}: {'success' if episode.success else 'failure'} after {episode.seconds:.1f} s "
                   f"({done}/{len(episodes)})")

@@ -95,17 +95,22 @@ def test_a_policy_saved_by_lerobot_runs_in_the_scene(env, tmp_path):
     preprocessor.save_pretrained(tmp_path)
     postprocessor.save_pretrained(tmp_path)
 
-    policy = evaluate.LeRobotPolicy(tmp_path, device="cpu")
-    actions = []
-
     class Recording:
+        def __init__(self, inner):
+            self.inner, self.actions = inner, []
+
         def reset(self):
-            policy.reset()
+            self.inner.reset()
 
         def __call__(self, frame):
-            actions.append(policy(frame))
-            return actions[-1]
+            self.actions.append(self.inner(frame))
+            return self.actions[-1]
 
-    episode = evaluate.run_episode(env, Recording(), seed=3, max_steps=12)  # two chunks of 10
-    assert not episode.success and len(actions) == 12
-    assert all(a.shape == (6,) and np.all(np.isfinite(a)) for a in actions)
+    chunks = Recording(evaluate.LeRobotPolicy(tmp_path, device="cpu"))
+    episode = evaluate.run_episode(env, chunks, seed=3, max_steps=12)  # two chunks of 10
+    assert not episode.success and len(chunks.actions) == 12
+    ensembled = Recording(evaluate.LeRobotPolicy(tmp_path, device="cpu", temporal_ensemble=0.01))
+    evaluate.run_episode(env, ensembled, seed=3, max_steps=3)  # a chunk every step, averaged
+    assert ensembled.inner.policy.config.n_action_steps == 1 and len(ensembled.actions) == 3
+    for recording in (chunks, ensembled):
+        assert all(a.shape == (6,) and np.all(np.isfinite(a)) for a in recording.actions)
