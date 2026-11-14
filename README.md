@@ -227,6 +227,14 @@ so101_mujoco --record <hf_user>/so101_pick_place
   a row of `$DATA_DIR/so101_mujoco/so101_pick_place_attempts.csv` (saved or discarded, seconds, frames), from which
   the metrics come.
 
+The dataset (2026-11-14, two sessions, ROB-39): 50 episodes, 31,460 frames (17.5 min at 30 fps, 171 MB), the cube
+and the disc from seeds 0–55 inside the workspace sector.
+
+- Teleoperation success rate: 50 of 56 attempts (89 %); the 6 failures were given up with `r`.
+- Time per pick and place, from the first `p` to the success: 20.0 s on average (SD 10.0 s), median 17.8 s, half of
+  them within 13.7–22.4 s, 7.7–59.6 s in all. The median fell from 20.1 s in the first session (20 episodes) to
+  16.4 s in the second (30). In the longest (59.6 s) the cube started under the arm at home, hidden from above.
+
 ## Limitations
 
 Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006, ADR 0007):

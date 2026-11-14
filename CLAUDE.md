@@ -71,8 +71,6 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Current milestone
 
-M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). ROB-35 built the frontal mapping (ADR 0006,
-the height from a key, ADR 0007, the gripper from gestures, ADR 0008), checked with the webcam on 2026-11-13. ROB-17
-confirmed so101-nexus (ADR 0009). ROB-38 (done 2026-11-14): one venv on LeRobot 0.7, the TCP between the open jaws,
-`so101_mujoco`, 7 of 7 webcam pick and places. Now ROB-39: ~50 demonstrations with `--record` (ADR 0010); then
-ROB-40 (ACT) and ROB-46 (release).
+M3 done (2026-11-14, exit criteria: ADR 0005): the hand drives SO-101 in MuJoCo (ROB-38, ADR 0006–0009) and ROB-39
+recorded 50 demonstrations (ADR 0010): teleoperation 50 of 56 (89 %), 20.0 s per pick and place on average. Now M4:
+ROB-40, ACT on the 50 episodes; then ROB-46 (release).
