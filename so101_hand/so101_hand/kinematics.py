@@ -12,14 +12,17 @@ from typing import NamedTuple
 
 import numpy as np
 
-# Tool centre point (TCP) in the frame of the `gripper` link: between the closed jaws, 7 mm behind their tips.
-TCP_IN_GRIPPER = np.array([0.0, 0.0, -0.098])
+# Tool centre point (TCP) in the frame of the `gripper` link: the middle of the open jaws, 12 mm off the wrist roll
+# axis, where a top-down grasp centres the cube. A TCP on the axis put the fixed jaw on the cube: 0-4 of 20 grasps in
+# MuJoCo lifted it, 19-20 of 20 with this one (ROB-38; it is so101-nexus's `gripperframe` site, 0.2 mm out of the
+# arm's plane left out). The closing jaw then pushes the cube about 6 mm towards the fixed jaw.
+TCP_IN_GRIPPER = np.array([0.012, 0.0, -0.098127])
 
 # Plane coordinates (reach, height) in metres with all joints at 0
 SHOULDER = np.array([0.05347, 0.14908])  # axis of joint "2"
 ELBOW_0 = np.array([0.08147, 0.26165])  # axis of joint "3"
 WRIST_0 = np.array([0.21637, 0.26685])  # axis of joint "4"
-TCP_0 = np.array([0.37547, 0.26685])  # with the gripper pointing straight forward (pitch 0)
+TCP_0 = np.array([0.37560, 0.27885])  # with the gripper pointing straight forward (pitch 0)
 
 UPPER_ARM = float(np.hypot(*(ELBOW_0 - SHOULDER)))  # 0.116 m
 FOREARM = float(np.hypot(*(WRIST_0 - ELBOW_0)))  # 0.135 m

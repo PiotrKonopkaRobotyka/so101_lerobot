@@ -8,7 +8,7 @@ JOINT_LOWER_RAD = -0.174533
 JOINT_UPPER_RAD = 1.74533
 SAFETY_MARGIN_RAD = 0.02
 
-CLOSED_RAD = 0.0  # jaws touching (lerobot-ros: closed position 0.0)
+CLOSED_RAD = 0.0  # jaws touching
 OPEN_RAD = JOINT_UPPER_RAD - SAFETY_MARGIN_RAD
 
 # MediaPipe's canned gestures that decide at once (ADR 0008): a fist, also with the thumb out, closes the gripper and

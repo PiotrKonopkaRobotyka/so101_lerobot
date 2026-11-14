@@ -92,7 +92,9 @@ Arm (stage 2):
   joints. The link vectors at zero come from the URDF; the forward kinematics matches a generic FK of the URDF
   and TF from `robot_state_publisher` to 0.005 mm.
 - The TCP is defined in our code (the third-party URDF has none): between the closed jaws, 7 mm behind their
-  tips, at (0, 0, −0.098) m in the `gripper` link frame.
+  tips, at (0, 0, −0.098) m in the `gripper` link frame. Amended in ROB-38 (2026-11-13): that point lies on the wrist
+  roll axis, and top-down grasps in MuJoCo missed with it; the TCP is now the middle of the open jaws,
+  (0.012, 0, −0.098) m.
 
 ## Rejected or deferred
 

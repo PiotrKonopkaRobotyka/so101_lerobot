@@ -1,4 +1,6 @@
 # Parameters of the hand_teleop node. Floats need a decimal point: ROS 2 rejects 10 for a float parameter.
+# so101_hand.session.Settings has the same values as its defaults (a test keeps them equal); the MuJoCo app uses
+# those, with its own heights (MuJoCo's floor is 32.5 mm higher in so101_hand's frame, ADR 0009).
 hand_teleop:
   ros__parameters:
     model_path: ""        # empty: $DATA_DIR/models/gesture_recognizer.task (default ~/data/models)
@@ -23,7 +25,7 @@ hand_teleop:
     rate_hz: 10.0         # goals per second
     move_time_s: 0.1      # time_from_start of each goal
 
-    # Stage 2 (ADR 0006, ADR 0007): the hand over the workspace seen from above, while following (space / ~/clutch)
+    # Stage 2 (ADR 0006, ADR 0007): the hand over the workspace seen from above, while following (p / ~/clutch)
     # arm (default false): set by the launch argument arm:=true; the arm first goes to the home pose. Not set here:
     # launch passes it under /**, and a value under hand_teleop in this file would override it.
     px_per_m: 800.0       # preview pixels per metre of table: 10 cm of table = 80 px, about 8 cm of hand at 55 cm
@@ -31,7 +33,7 @@ hand_teleop:
     bounds_reach: [0.12, 0.34]   # metres from the pan axis where TCP targets may go (the drawn sector)
     bounds_pan: [-1.0472, 1.0472]   # joint 1 in radians, + = the robot's right: +-60 deg keeps the hand in the frame
     bounds_height: [0.02, 0.40]  # metres up; 0.02 keeps the jaws off the floor
-    hover_height: 0.08    # TCP height between grasps (the key z or ~/grasp toggles the levels)
+    hover_height: 0.08    # TCP height between grasps (space or ~/grasp toggles the levels)
     grasp_height: 0.02    # TCP height at the grasp
     pitch_range: [-1.5708, -0.7854]  # jaws' pitch: the steepest the arm reaches, from straight down to 45 deg
     max_step_m: 0.02      # largest TCP step over the table per camera frame (0.4 m/s at 20 fps)

@@ -4,7 +4,8 @@ __pycache__/
 build/
 install/
 log/
-# wagi modeli trzymamy w ~/data/models
+*.egg-info/
+# model weights live in ~/data/models
 *.pt
 *.pth
 *.onnx
