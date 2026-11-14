@@ -1,4 +1,5 @@
-# Tests of so101_hand, the ROS-free core: numpy and pytest, no ROS, MediaPipe or webcam.
+# Tests of the ROS-free packages: so101_hand (numpy) and so101_mujoco (so101-nexus, MuJoCo), no ROS, MediaPipe,
+# webcam or GPU.
 name: Tests
 
 on:
@@ -34,3 +35,26 @@ jobs:
       # -rs lists the skipped tests and why (the tracker tests need MediaPipe)
       - name: Run the tests
         run: python -m pytest -rs src/so101_lerobot/so101_hand
+
+  so101_mujoco:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MUJOCO_GL: disable  # the tests simulate without rendering: no OpenGL at all
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: src/so101_lerobot
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # so101-nexus and MuJoCo from PyPI at the lock's versions
+      - name: Install so101_mujoco
+        run: >-
+          pip install -c src/so101_lerobot/requirements-lock.txt -e src/so101_lerobot/so101_hand
+          -e "src/so101_lerobot/so101_mujoco[dev]"
+
+      - name: Run the tests
+        run: python -m pytest -rs src/so101_lerobot/so101_mujoco

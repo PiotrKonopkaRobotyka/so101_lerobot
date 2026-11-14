@@ -11,7 +11,7 @@ dependencies = ["numpy"]
 
 [project.optional-dependencies]
 tracker = ["mediapipe"]
-dev = ["pytest"]
+dev = ["pytest", "pyyaml"]  # pyyaml: the test that keeps Settings equal to the node's parameters
 
 [tool.setuptools]
 packages = ["so101_hand"]

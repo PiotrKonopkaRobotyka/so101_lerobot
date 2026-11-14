@@ -6,11 +6,12 @@ Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation onl
 - `so101_hand/`, `so101_hand_ros/` — hand teleoperation from the webcam: closing the hand closes the simulated
   gripper, moving it moves the arm in its plane. Hand tracking (MediaPipe), measures, calibration, filters,
   kinematics and the clutch as a plain Python package with `pytest` tests, and a thin ROS 2 node (`hand_teleop`).
+- `so101_mujoco/` — the same hand teleoperation without ROS, picking and placing a cube in MuJoCo (so101-nexus).
 - `lerobot_mimic/` — legacy: the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
 
 ## Workspace
 
-```
+```text
 so101_ws/
 ├── .venv/                 # Python env (not in git)
 └── src/
@@ -37,7 +38,7 @@ touch .venv/COLCON_IGNORE
 .venv/bin/pip install -r src/so101_lerobot/requirements-lock.txt \
                       -r src/so101_lerobot/requirements.txt \
                       -c src/so101_lerobot/constraints.txt
-.venv/bin/pip install --no-deps -e src/so101_lerobot/so101_hand
+.venv/bin/pip install --no-deps -e src/so101_lerobot/so101_hand -e src/so101_lerobot/so101_mujoco
 ```
 
 The hand node needs MediaPipe's Gesture Recognizer model (8.4 MB) in `$DATA_DIR/models`: the Hand Landmarker and a
@@ -119,14 +120,15 @@ the gap and the gesture with its score, the second the gripper's state and what 
 
 ![Pick and place with the hand: Gazebo from the side and from above, and the webcam preview with the workspace sector](docs/media/hand_workspace.gif)
 
-The open hand brings the gripper over a spot, `z` lowers it, a fist closes the jaws, `z` raises them, the hand
-carries them to the left, `z` lowers them and the open hand releases (12 s in real time, 2026-11-13).
+The open hand brings the gripper over a spot, the height key lowers it, a fist closes the jaws, the key raises
+them, the hand carries them to the left, the key lowers them and the open hand releases (12 s in real time,
+2026-11-13; the height key was `z` then, it is `space` now).
 
 ADR 0006, ADR 0007 and ADR 0008. The webcam sees you from the front; your open right hand in front of your chest,
 palm to the camera, is the gripper seen from above. The preview shows the robot's workspace from above as a grey
 ring sector (the arm's pan axis near the bottom edge, forward up the screen) and a white ring where the gripper is:
 where your palm is in the sector is where the gripper goes over the table, the base turning with it. The height
-comes from the key `z` (hover or grasp), the jaws point down, and a fist closes the gripper.
+comes from the key `space` (hover or grasp), the jaws point down, and a fist closes the gripper.
 
 ```bash
 ros2 launch so101_bringup sim.launch.py moveit:=false hand:=true arm:=true
@@ -136,11 +138,11 @@ Two Gazebo windows open: the robot from its left side and, for aiming, from abov
 (forward up, the robot's right on the right). The arm first goes to the home pose (gripper 20 cm ahead of the pan
 axis at the hover height, jaws down), paused. Then:
 
-- `space` follows the hand: the palm dot in the preview turns from grey to green, the gripper goes to where the
+- `p` follows the hand: the palm dot in the preview turns from grey to green, the gripper goes to where the
   palm is at up to `max_step_m` per frame (about 0.4 m/s) and then follows it. Following starts only with the
-  hand inside the sector (a red dot means outside: the target is rejected). `space` again pauses: the arm holds
+  hand inside the sector (a red dot means outside: the target is rejected). `p` again pauses: the arm holds
   while you rest or move your hand.
-- `z` toggles the height between `hover_height` (8 cm) and `grasp_height` (2 cm), travelled at up to
+- `space` toggles the height between `hover_height` (8 cm) and `grasp_height` (2 cm), travelled at up to
   `max_step_height_m` per frame (about 0.1 m/s); the preview shows the active one. Lower the gripper over the
   block, close your hand, raise, carry, lower, open.
 - The jaws point straight down where the arm reaches it and tilt up to 45° near the edge of the sector
@@ -161,17 +163,44 @@ axis at the hover height, jaws down), paused. Then:
 The side view of M2 (ADR 0003: the hand moved the gripper in the arm's vertical plane with a clutch, the jaws
 following the hand's pitch) is in the history, tag `v0.2-side-view`, with its [GIF](docs/media/hand_arm.gif).
 
-Tests of the hand logic, no ROS or camera needed (venv active, in `so101_ws`):
+Tests of the hand logic and of the MuJoCo scene, no ROS or camera needed (venv active, in `so101_ws`):
 
 ```bash
 python -m pytest src/so101_lerobot/so101_hand
+python -m pytest src/so101_lerobot/so101_mujoco
 ```
 
-GitHub Actions runs these tests on every pull request and push to `main` (`.github/workflows/tests.yml`),
-without ROS or MediaPipe: the tracker tests are skipped there.
+GitHub Actions runs them on every pull request and push to `main` (`.github/workflows/tests.yml`), without ROS
+or MediaPipe: the tracker tests are skipped there.
 
 Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `gesture_recognizer.task`,
 `yolo26m-pose.pt`.
+
+## Pick and place in MuJoCo (M3)
+
+ADR 0009. The same hand teleoperation drives SO-101 in MuJoCo, without ROS: so101-nexus's `PickAndPlace-v2`
+(a 25 mm cube and a blue disc of 5 cm radius, both placed inside the workspace sector). Pick the cube up and put it
+on the disc, then open your hand and raise the gripper: the task counts a success when the cube rests on the disc,
+released, for 0.2 s.
+
+```bash
+so101_mujoco                       # venv active; or: .venv/bin/so101_mujoco
+```
+
+One window: the preview (as for Gazebo) and the scene from above (the base at the bottom, the robot's right on the
+right, like the preview) and from the robot's right side, with the sector drawn on the floor and a cross where the
+gripper is going (green while following). The simulation runs in real time with the camera.
+
+- Keys: `p` follows or pauses, `space` toggles the height (hover 7 cm, grasp 1.25 cm: the cube's centre, both above
+  the floor), `h` home, `c` / `o` calibration, `r` the next episode (another cube and disc), `q` quit.
+- A success shows the time since the episode began; with the webcam it is also added to
+  `$DATA_DIR/so101_mujoco/pick_and_place.csv`.
+- Without a webcam or a screen: `so101_mujoco --video <file> --follow --headless out.mp4` (the window is written
+  to a video; `--follow` starts following once the hand is in the sector).
+- The TCP is the middle of the open jaws, 12 mm off the wrist roll axis (`so101_hand/kinematics.py`): a top-down
+  grasp of so101_hand's IK straight above the cube lifts it in 37 of 40 random scenes; on the axis it was 0–4 of 20.
+- MuJoCo's world and so101_hand's frame differ by a shift (`so101_mujoco/world.py`): the Gazebo base frame lies
+  32.5 mm below MuJoCo's floor, and so101-nexus's wrist roll is the Gazebo joint 5 + 0.0487 rad.
 
 ## Limitations
 
@@ -186,11 +215,11 @@ Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006, ADR 0007):
   the arm's plane, so the arm moved only in that plane, with the scale latched when the clutch engaged.)
 - Frontal pose: the camera must see the thumb and the index finger, and a fist hides them for a moment, which the
   EMA and the hold cover (ROB-19: open told from closed in 97.6–100% of frames from the front).
-- The arm follows the hand only while following (`space`, or the service), and the pause is a key, not a gesture;
+- The arm follows the hand only while following (`p`, or the service), and the pause is a key, not a gesture;
   following starts only with the hand inside the sector. The hand's position maps to the table in pixels, so the
   mapping is set once for one camera placement (`px_per_m`, `axis_px`).
 - No wrist roll: joint 5 stays at 0, and the jaws point down (a top-down grasp) where the arm reaches it, tilting
   up to 45° elsewhere (the wrist flex limit): the block is grasped from above, within a part of the workspace.
-- Grasping only in MuJoCo, not in Gazebo: the Gazebo stages move the gripper and the arm with no objects to pick.
-  Picking a block and recording demonstrations for training are planned in MuJoCo (ADR 0005).
+- Grasping only in MuJoCo (`so101_mujoco`), not in Gazebo: the Gazebo stages move the gripper and the arm with no
+  objects to pick. Recording demonstrations for training is planned in MuJoCo (ADR 0005, ROB-39).
 - Simulation only: no real SO-101 has been driven yet.
