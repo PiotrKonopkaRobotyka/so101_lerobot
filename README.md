@@ -227,6 +227,47 @@ so101_mujoco --record <hf_user>/so101_pick_place
   a row of `$DATA_DIR/so101_mujoco/so101_pick_place_attempts.csv` (saved or discarded, seconds, frames), from which
   the metrics come.
 
+## ACT policy (M4)
+
+ROB-40. LeRobot's ACT (Action Chunking with Transformers) learns from the demonstrations: from the two cameras and
+the joints it predicts the next 100 joint targets (3.3 s), and `so101_mujoco_eval` runs it in the same MuJoCo scene.
+
+### Training
+
+```bash
+# the venv active, in so101_ws; the dataset is local, so nothing is fetched from the Hub
+HF_HUB_OFFLINE=1 lerobot-train \
+  --dataset.repo_id=PiotrKonopkaRobotyka/so101_pick_place \
+  --policy.type=act --policy.device=cuda --policy.push_to_hub=false \
+  --policy.input_features='{"observation.state": {"type": "STATE", "shape": [6]},
+    "observation.images.wrist": {"type": "VISUAL", "shape": [3, 480, 640]},
+    "observation.images.overhead": {"type": "VISUAL", "shape": [3, 480, 640]}}' \
+  --accelerator.mixed_precision=bf16 \
+  --output_dir=$HOME/data/models/so101_act --steps=20000 --save_freq=5000
+```
+
+- `--policy.input_features` lists the policy's inputs. Without it LeRobot also gives ACT
+  `observation.environment_state`, the simulator's poses of the cube and the disc, which a real arm does not have.
+- Otherwise ACT's defaults: batch 8, learning rate 1e-5, chunks of 100 actions. On the RTX 4060 Laptop: 4.2 steps/s
+  in bf16 (3.4 in fp32, with the same loss), 3.6 GB of GPU memory (4.6 GB with CUDA's own). A checkpoint takes
+  0.6 GB, of which 0.2 GB is the policy (`pretrained_model/`) and the rest the optimizer's state.
+- `lerobot-train` needs `accelerate` (in `requirements.txt`); ResNet18's ImageNet weights are downloaded once, into
+  `~/.cache/torch`.
+
+### Evaluation in MuJoCo
+
+```bash
+so101_mujoco_eval ~/data/models/so101_act/checkpoints/last/pretrained_model    # 50 episodes, seeds 1000-1049
+so101_mujoco_eval <the same> --episodes 3 --video act.mp4                      # what the policy saw
+```
+
+- Every episode starts as the recorded ones: a new cube and disc (seeds from 1000; the recordings' start at 0), the
+  arm at home, the gripper open. Each step (30 Hz) the policy gets the two cameras and the joints in the dataset's
+  units and returns the joint targets; an episode ends with the task's success or after 60 s, twice the longest
+  demonstration.
+- Each episode is a row of `$DATA_DIR/so101_mujoco/eval.csv` (time, checkpoint, seed, success, seconds).
+- `--device cpu` runs the policy on the CPU, e.g. while a training uses the GPU (about 75 simulated steps/s).
+
 ## Limitations
 
 Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006, ADR 0007):

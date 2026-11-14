@@ -46,3 +46,6 @@ gripper are the same, and the wrist roll's zero differs by 0.0487 rad (ADR 0009)
   least 8 of 10 scenes (tests).
 - h264 instead of LeRobot's default AV1, as so101-nexus's recorder: an episode encodes in a few seconds.
 - `observation.environment_state` lets an episode be replayed and analysed in the simulator; ACT does not use it.
+  Correction (2026-11-14, ROB-40): LeRobot 0.7 gives a policy every `observation.*` feature of the dataset, and ACT
+  has an input for the environment state, so the training lists the policy's inputs without it
+  (`--policy.input_features`: the joints and the two cameras).
