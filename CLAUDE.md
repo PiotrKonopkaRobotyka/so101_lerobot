@@ -19,8 +19,9 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - `so101_hand_ros/` — node `hand_teleop`: webcam (or `video:=`) → `so101_hand.session` → gripper and arm goals (joint
   5 at 0); p or `~/clutch` follows/pauses, space the height; parameters in `config/hand_teleop.yaml` (= `Settings`).
 - `so101_mujoco/` — plain Python like `so101_hand`: the same session drives so101-nexus's PickAndPlace-v2 (`app`,
-  command `so101_mujoco`); `world` frame and joint offsets, `scene` env at 30 Hz, heights and the operator's two
-  views; `record` the LeRobot dataset (`--record`, ADR 0010).
+  command `so101_mujoco`); `world` frame and joint offsets, `scene` env at 30 Hz, heights, the home start and the
+  operator's two views; `record` the LeRobot dataset (`--record`, ADR 0010); `evaluate` a trained policy's success
+  rate (command `so101_mujoco_eval`).
 - `lerobot_mimic/` — legacy YOLO pose (AGPL-3.0) arm mimicking, J2/J3 only; kept as an example.
 
 ## Third-party (pinned in `so101_lerobot.repos` or `requirements.txt`, never modified)
@@ -35,8 +36,11 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - Run: `so101_sim` or `so101_hand`; without aliases `ws so101` and `ros2 launch so101_bringup sim.launch.py`;
   MuJoCo: `so101_mujoco` (venv; no ROS).
 - Check: `ros2 control list_controllers` shows 3 active controllers; Plan & Execute in RViz moves the arm.
-- Tests: `python -m pytest src/so101_lerobot/so101_hand` and `…/so101_mujoco` (venv, ~2 s each, no ROS or camera);
-  CI runs both (`tests.yml`). MuJoCo check: `so101_mujoco --video <file> --follow --headless out.mp4` (`MUJOCO_GL=egl`).
+- Tests: `python -m pytest src/so101_lerobot/so101_hand` (~2 s) and `…/so101_mujoco` (~30 s; venv, no ROS or camera);
+  CI runs both (`tests.yml`), without rendering: the recording and evaluation tests run only locally. MuJoCo check:
+  `so101_mujoco --video <file> --follow --headless out.mp4` (`MUJOCO_GL=egl`).
+- ACT: train with README's `lerobot-train` command (inputs listed, bf16; 20k steps ≈ 80 min on the RTX 4060), weights
+  in `~/data/models/`; evaluate with `so101_mujoco_eval <output_dir>/checkpoints/last/pretrained_model`.
 - Scripted checks: `sim.launch.py … headless:=true video:=<file> preview:=false` (the GUI needs OpenGL), e.g. on
   `~/data/hand_depth_spike/plane.avi`; own `ROS_DOMAIN_ID`, `GZ_PARTITION`; `set -m`, `kill -INT -- -<pgid>`; no
   `set -u`; never the webcam unasked. The sandbox blocks multicast, so nothing is found without `GZ_IP=127.0.0.1
@@ -68,11 +72,12 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - Run pip with `env -u PYTHONPATH`: with ROS sourced, `pip check` and `pip freeze` see ROS's packages too.
 - MoveIt's SUCCESS means the trajectory time is over, not that the joints arrived: check `/joint_states` (ADR 0004).
 - A YAML value under the node name beats a launch dict one (under `/**`): no `arm`, `video_path`, `preview` in YAML.
+- LeRobot gives a policy every `observation.*` feature: list the inputs (`--policy.input_features`), or ACT also gets
+  `observation.environment_state`, the simulator's cube and disc. `lerobot-train` needs `accelerate` (requirements).
 
 ## Current milestone
 
-M3 Webcam pick and place in MuJoCo + 50 demos (exit criteria: ADR 0005). ROB-35 built the frontal mapping (ADR 0006,
-the height from a key, ADR 0007, the gripper from gestures, ADR 0008), checked with the webcam on 2026-11-13. ROB-17
-confirmed so101-nexus (ADR 0009). ROB-38 (done 2026-11-14): one venv on LeRobot 0.7, the TCP between the open jaws,
-`so101_mujoco`, 7 of 7 webcam pick and places. Now ROB-39: ~50 demonstrations with `--record` (ADR 0010); then
-ROB-40 (ACT) and ROB-46 (release).
+M3 ends and M4 begins (exit criteria: ADR 0005). ROB-39: recording merged (PR #15), 20 of ~50 demonstrations
+(teleoperation 20/24 = 83 %), ~30 more to record (Todo). ROB-40 pilot (2026-11-14, branch, no PR yet): ACT on the 20
+episodes, 20k steps in 86 min: 5k 0/10, 10k 2/50, 15k 3/50, 20k 0/50 in MuJoCo (loss 0.11: it fits the demos, the
+grasp misses); an outcome can differ between runs of one seed. Next: the rest of ROB-39, ROB-40 on ~50 episodes, ROB-46.
