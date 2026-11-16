@@ -19,8 +19,9 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - `so101_hand_ros/` — node `hand_teleop`: webcam (or `video:=`) → `so101_hand.session` → gripper and arm goals (joint
   5 at 0); p or `~/clutch` follows/pauses, space the height; parameters in `config/hand_teleop.yaml` (= `Settings`).
 - `so101_mujoco/` — plain Python like `so101_hand`: the same session drives so101-nexus's PickAndPlace-v2 (`app`,
-  command `so101_mujoco`); `world` frame and joint offsets, `scene` env at 30 Hz, heights and the operator's two
-  views; `record` the LeRobot dataset (`--record`, ADR 0010).
+  command `so101_mujoco`); `world` frame and joint offsets, `scene` env at 30 Hz, heights, the home start and the
+  operator's two views; `record` the LeRobot dataset (`--record`, ADR 0010); `evaluate` a trained policy's success
+  rate (command `so101_mujoco_eval`).
 - `lerobot_mimic/` — legacy YOLO pose (AGPL-3.0) arm mimicking, J2/J3 only; kept as an example.
 
 ## Third-party (pinned in `so101_lerobot.repos` or `requirements.txt`, never modified)
@@ -35,8 +36,12 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - Run: `so101_sim` or `so101_hand`; without aliases `ws so101` and `ros2 launch so101_bringup sim.launch.py`;
   MuJoCo: `so101_mujoco` (venv; no ROS).
 - Check: `ros2 control list_controllers` shows 3 active controllers; Plan & Execute in RViz moves the arm.
-- Tests: `python -m pytest src/so101_lerobot/so101_hand` and `…/so101_mujoco` (venv, ~2 s each, no ROS or camera);
-  CI runs both (`tests.yml`). MuJoCo check: `so101_mujoco --video <file> --follow --headless out.mp4` (`MUJOCO_GL=egl`).
+- Tests: `python -m pytest src/so101_lerobot/so101_hand` (~2 s) and `…/so101_mujoco` (~30 s; venv, no ROS or camera);
+  CI runs both (`tests.yml`), without rendering: the recording and evaluation tests run only locally. MuJoCo check:
+  `so101_mujoco --video <file> --follow --headless out.mp4` (`MUJOCO_GL=egl`).
+- ACT: train with README's `lerobot-train` command (inputs listed, bf16; 50k steps = 3.5 h on the RTX 4060), weights
+  in `~/data/models/so101_act`; evaluate with `so101_mujoco_eval <output_dir>/checkpoints/last/pretrained_model`
+  (50 episodes, ~8 min on the GPU). Long runs detached from the session (`setsid nohup`, `~/code/CLAUDE.md`).
 - Scripted checks: `sim.launch.py … headless:=true video:=<file> preview:=false` (the GUI needs OpenGL), e.g. on
   `~/data/hand_depth_spike/plane.avi`; own `ROS_DOMAIN_ID`, `GZ_PARTITION`; `set -m`, `kill -INT -- -<pgid>`; no
   `set -u`; never the webcam unasked. The sandbox blocks multicast, so nothing is found without `GZ_IP=127.0.0.1
@@ -68,9 +73,13 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - Run pip with `env -u PYTHONPATH`: with ROS sourced, `pip check` and `pip freeze` see ROS's packages too.
 - MoveIt's SUCCESS means the trajectory time is over, not that the joints arrived: check `/joint_states` (ADR 0004).
 - A YAML value under the node name beats a launch dict one (under `/**`): no `arm`, `video_path`, `preview` in YAML.
+- LeRobot gives a policy every `observation.*` feature: list the inputs (`--policy.input_features`), or ACT also gets
+  `observation.environment_state`, the simulator's cube and disc. `lerobot-train` needs `accelerate` (requirements).
 
 ## Current milestone
 
 M3 done (2026-11-14, exit criteria: ADR 0005): the hand drives SO-101 in MuJoCo (ROB-38, ADR 0006–0009) and ROB-39
-recorded 50 demonstrations (ADR 0010): teleoperation 50 of 56 (89 %), 20.0 s per pick and place on average. Now M4:
-ROB-40, ACT on the 50 episodes; then ROB-46 (release).
+recorded 50 demonstrations (ADR 0010): teleoperation 50 of 56 (89 %), 20.0 s per pick and place on average. M4 done
+(2026-11-16, ROB-40): ACT on the 50 episodes, 50k steps, succeeds in 17 and 16 of 50 scenes in MuJoCo (two runs, 33 %;
+one run is good to ±13 points, a scene's outcome differs between runs); 20 episodes gave 0–3 of 50, temporal
+ensembling 10 of 50. Now M5: ROB-46 (release: Apache-2.0, no `lerobot_mimic/`, a light Docker image, a write-up).
