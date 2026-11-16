@@ -6,7 +6,8 @@ Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation onl
 - `so101_hand/`, `so101_hand_ros/` — hand teleoperation from the webcam: closing the hand closes the simulated
   gripper, moving it moves the arm in its plane. Hand tracking (MediaPipe), measures, calibration, filters,
   kinematics and the clutch as a plain Python package with `pytest` tests, and a thin ROS 2 node (`hand_teleop`).
-- `so101_mujoco/` — the same hand teleoperation without ROS, picking and placing a cube in MuJoCo (so101-nexus).
+- `so101_mujoco/` — the same hand teleoperation without ROS, picking and placing a cube in MuJoCo (so101-nexus):
+  50 recorded demonstrations and an ACT policy trained on them, 33 % success against the operator's 89 %.
 - `lerobot_mimic/` — legacy: the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
 
 ## Workspace
@@ -251,14 +252,17 @@ HF_HUB_OFFLINE=1 lerobot-train \
     "observation.images.wrist": {"type": "VISUAL", "shape": [3, 480, 640]},
     "observation.images.overhead": {"type": "VISUAL", "shape": [3, 480, 640]}}' \
   --accelerator.mixed_precision=bf16 \
-  --output_dir=$HOME/data/models/so101_act --steps=50000 --save_freq=10000
+  --output_dir=$HOME/data/models/so101_act --steps=50000 --save_freq=5000
 ```
 
 - `--policy.input_features` lists the policy's inputs. Without it LeRobot also gives ACT
   `observation.environment_state`, the simulator's poses of the cube and the disc, which a real arm does not have.
-- Otherwise ACT's defaults: batch 8, learning rate 1e-5, chunks of 100 actions. On the RTX 4060 Laptop: 4.2 steps/s
-  in bf16 (3.4 in fp32, with the same loss), 3.6 GB of GPU memory (4.6 GB with CUDA's own). A checkpoint takes
-  0.6 GB, of which 0.2 GB is the policy (`pretrained_model/`) and the rest the optimizer's state.
+- Otherwise ACT's defaults: batch 8, learning rate 1e-5, chunks of 100 actions. On the RTX 4060 Laptop (8 GB) the
+  50,000 steps (12.7 epochs of the 50 episodes) took 3 h 31 min: 4.2 steps/s in bf16 (3.4 in fp32, with the same
+  loss), 3.6 GB of GPU memory allocated, 4.6 GB in `nvidia-smi`. A checkpoint takes 0.6 GB, of which 0.2 GB is the
+  policy (`pretrained_model/`) and the rest the optimizer's state.
+- A run that stops continues from its last checkpoint: `lerobot-train --resume=true
+  --config_path=<output_dir>/checkpoints/last/pretrained_model/train_config.json`.
 - `lerobot-train` needs `accelerate` (in `requirements.txt`); ResNet18's ImageNet weights are downloaded once, into
   `~/.cache/torch`.
 
@@ -271,10 +275,39 @@ so101_mujoco_eval <the same> --episodes 3 --video act.mp4                      #
 
 - Every episode starts as the recorded ones: a new cube and disc (seeds from 1000; the recordings' start at 0), the
   arm at home, the gripper open. Each step (30 Hz) the policy gets the two cameras and the joints in the dataset's
-  units and returns the joint targets; an episode ends with the task's success or after 60 s (the demonstrations took 7.7–59.6 s,
-  median 17.8 s).
-- Each episode is a row of `$DATA_DIR/so101_mujoco/eval.csv` (time, checkpoint, seed, success, seconds).
+  units and returns the joint targets; an episode ends with the task's success or after 60 s (the demonstrations
+  took 7.7–59.6 s, median 17.8 s).
+- The task's success is the cube resting on the disc, released: it does not ask how the cube got there, and in 6 of
+  these 50 scenes the cube starts within 8 cm of the disc's centre (the success radius is 5 cm). So every episode
+  also records how far the cube rose: a success with at least 20 mm is a cube carried, not pushed.
+- Each episode is a row of `$DATA_DIR/so101_mujoco/eval.csv` (time, checkpoint, seed, success, seconds, lift_mm).
+- `--temporal-ensemble 0.01` predicts a chunk at every step and averages the overlapping ones (the ACT paper's
+  inference) instead of running each chunk of 100 actions to its end, LeRobot's default.
 - `--device cpu` runs the policy on the CPU, e.g. while a training uses the GPU (about 75 simulated steps/s).
+
+### Results
+
+![ACT picks the cube and places it on the disc: the overhead and the wrist camera, the policy's two views](docs/media/act_pick_and_place.gif)
+
+The policy after 50,000 steps picks the cube and places it on the disc in 14.8 s (seed 1037, real time; the two
+images are all it sees besides its joints). Over the 50 evaluation scenes (2026-11-16):
+
+| | Success | Time to success |
+| --- | --- | --- |
+| Teleoperation (the demonstrations) | 50 of 56 (89 %) | 20.0 s mean, 17.8 s median |
+| ACT, 50 episodes, 50,000 steps | 17 of 50 and 16 of 50 (33 %) | 31.8 s mean, 27.8 s median |
+
+- The two ACT numbers are two runs of the same checkpoint on the same 50 scenes. A scene's outcome is not
+  repeatable: tiny numerical differences on the GPU grow in the closed loop, so only 8 scenes succeeded in both
+  runs, 25 in at least one and 25 in neither. One run of 50 episodes is good to about ±13 points (95 %).
+- The successes are real pick and places: all 16 of the second run carried the cube (the first run did not record
+  it yet), as 49 of the 50 demonstrations did. In 6 of its 34 failures the cube was lifted but not placed; in the
+  other 28 it rose 10 mm at most: touched or tipped over, never grasped.
+- During the training (one run each, the policy on the CPU): 7, 14, 9, 15 of 50 after 10,000, 20,000, 30,000,
+  40,000 steps. From 20,000 steps on the differences are within the noise.
+- More demonstrations helped more than more steps: the pilot on the first 20 episodes reached 0 to 3 of 50
+  (20,000 steps, the same loss).
+- Temporal ensembling was worse here, 10 of 50 (20 %, one run).
 
 ## Limitations
 
