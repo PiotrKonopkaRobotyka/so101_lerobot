@@ -1,3 +1,4 @@
+import csv
 import os
 
 import numpy as np
@@ -56,6 +57,7 @@ def test_a_pick_and_place_in_the_datasets_units_succeeds(env):
     policy = Scripted(env)
     episode = evaluate.run_episode(env, policy, seed=2, max_steps=20 * FPS)
     assert episode.success and episode.seconds < 15
+    assert episode.carried and 0.04 < episode.lift < 0.07  # the cube's centre from 12.5 mm to the hover height, 70 mm
     first = policy.frames[0]
     assert set(first) == {"observation.state", "observation.images.wrist", "observation.images.overhead"}
     for key in ("observation.images.wrist", "observation.images.overhead"):
@@ -66,6 +68,20 @@ def test_a_pick_and_place_in_the_datasets_units_succeeds(env):
 def test_a_policy_that_does_not_move_fails_at_the_time_limit(env):
     episode = evaluate.run_episode(env, Still(), seed=2, max_steps=30)
     assert not episode.success and episode.seconds == pytest.approx(1.0)
+    assert abs(episode.lift) < 0.001 and not episode.carried  # the cube stayed on the floor
+
+
+def test_a_success_counts_as_carried_only_with_the_cube_lifted_and_each_episode_is_a_csv_row(tmp_path):
+    carried = evaluate.Episode(seed=7, success=True, seconds=12.34, lift=0.0581)
+    pushed = evaluate.Episode(seed=8, success=True, seconds=5.0, lift=0.004)  # onto the disc from next to it
+    dropped = evaluate.Episode(seed=9, success=False, seconds=60.0, lift=0.06)  # picked up, not placed
+    assert [e.carried for e in (carried, pushed, dropped)] == [True, False, False]
+    for episode in (carried, pushed, dropped):
+        evaluate.log("a/policy", episode, tmp_path / "eval.csv")
+    with (tmp_path / "eval.csv").open() as file:
+        rows = list(csv.DictReader(file))
+    assert [(r["policy"], r["seed"], r["success"], r["seconds"], r["lift_mm"]) for r in rows] == [
+        ("a/policy", "7", "1", "12.3", "58"), ("a/policy", "8", "1", "5.0", "4"), ("a/policy", "9", "0", "60.0", "60")]
 
 
 def test_a_policy_saved_by_lerobot_runs_in_the_scene(env, tmp_path):

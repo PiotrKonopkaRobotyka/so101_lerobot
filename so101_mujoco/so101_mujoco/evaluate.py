@@ -4,9 +4,11 @@ Every episode is a new cube and disc, one seed each from --seed on (the recordin
 the recorded ones do: the arm at home, the gripper open. Every step the policy gets what a dataset frame holds, the
 wrist and overhead cameras and the joints in the dataset's units (degrees, the gripper 0-100), and returns the joint
 targets in the same units for one simulation step (1/30 s). An episode ends with so101-nexus's success (the cube
-released on the disc) or after --max-seconds. Each episode is a row of $DATA_DIR/so101_mujoco/eval.csv; --video
-writes what the policy saw (overhead | wrist). LeRobot's ACT runs each chunk of 100 actions to its end; with
---temporal-ensemble it predicts a chunk every step and averages the overlapping ones (the ACT paper's inference).
+released on the disc) or after --max-seconds. The task does not ask how the cube got there, so each episode also
+notes how far the cube rose: carried, or only pushed onto the disc from next to it. Each episode is a row of
+$DATA_DIR/so101_mujoco/eval.csv; --video writes what the policy saw (overhead | wrist). LeRobot's ACT runs each
+chunk of 100 actions to its end; with --temporal-ensemble it predicts a chunk every step and averages the
+overlapping ones (the ACT paper's inference).
 
     so101_mujoco_eval POLICY_DIR [--episodes 50] [--seed 1000] [--max-seconds 60] [--video OUT.mp4]
                       [--temporal-ensemble 0.01] [--device cuda]
@@ -30,9 +32,11 @@ import numpy as np  # noqa: E402
 from so101_mujoco.record import CAMERAS, METRICS  # noqa: E402
 from so101_mujoco.scene import CAMERA_SIZE, FPS, home_pose, joint_addresses, make_env, reset_at_home  # noqa: E402
 from so101_nexus.lerobot_dataset import dataset_row_to_sim_qpos, sim_qpos_to_dataset_row  # noqa: E402
+from so101_nexus.observations import privileged_state_feature_names  # noqa: E402
 
 RESULTS = METRICS / "eval.csv"
-CSV_FIELDS = ["time", "policy", "seed", "success", "seconds"]
+CSV_FIELDS = ["time", "policy", "seed", "success", "seconds", "lift_mm"]
+LIFTED = 0.02  # m: a cube that rose this much was carried; pushed or tipped over, the 25 mm cube rises under 10 mm
 
 
 class Policy(Protocol):
@@ -48,17 +52,25 @@ class Episode:
     seed: int
     success: bool
     seconds: float  # simulated time to the success, or of the whole episode
+    lift: float  # m: the most the cube rose above where it started
+
+    @property
+    def carried(self) -> bool:
+        """A success with the cube lifted, not pushed onto the disc."""
+        return self.success and self.lift >= LIFTED
 
 
 def run_episode(env, policy: Policy, seed: int, max_steps: int,
                 on_step: Callable[[dict, float], None] | None = None) -> Episode:
     """One episode of `policy` from the home pose, until the success or `max_steps` steps; `on_step` gets each new
-    observation and its time."""
+    observation and its time. `env` is `make_env(cameras=True)`: the policy's images and the simulator's state."""
     sim = env.unwrapped
     addresses = joint_addresses(sim.model)
     low, high = env.action_space.low, env.action_space.high
     gripper = (float(low[5]), float(high[5]))
-    obs, _ = reset_at_home(env, seed, *home_pose())
+    height = privileged_state_feature_names(sim.config.observations).index("object_pose_2")  # the cube's z
+    obs, info = reset_at_home(env, seed, *home_pose())
+    start = top = float(info["privileged_state"][height])
     policy.reset()
     for step in range(1, max_steps + 1):
         state = sim_qpos_to_dataset_row(sim.data.qpos[addresses].astype(np.float64), gripper_limits_rad=gripper)
@@ -66,11 +78,12 @@ def run_episode(env, policy: Policy, seed: int, max_steps: int,
                  **{f"observation.images.{key}": obs[source] for key, source in CAMERAS.items()}}
         action = dataset_row_to_sim_qpos(np.asarray(policy(frame), dtype=np.float64), gripper_limits_rad=gripper)
         obs, _, _, _, info = env.step(np.clip(action, low, high).astype(np.float32))
+        top = max(top, float(info["privileged_state"][height]))
         if on_step is not None:
             on_step(obs, step / FPS)
         if info["success"]:
-            return Episode(seed, True, step / FPS)
-    return Episode(seed, False, max_steps / FPS)
+            return Episode(seed, True, step / FPS, top - start)
+    return Episode(seed, False, max_steps / FPS, top - start)
 
 
 class LeRobotPolicy:
@@ -115,7 +128,7 @@ def log(policy: Path | str, episode: Episode, path: Path = RESULTS) -> None:
         if new:
             writer.writerow(CSV_FIELDS)
         writer.writerow([datetime.now().isoformat(timespec="seconds"), policy, episode.seed, int(episode.success),
-                         f"{episode.seconds:.1f}"])
+                         f"{episode.seconds:.1f}", f"{1000 * episode.lift:.0f}"])
 
 
 def main() -> None:
@@ -153,8 +166,8 @@ def main() -> None:
             episodes.append(episode)
             log(label, episode)
             done = sum(e.success for e in episodes)
-            print(f"seed {seed}: {'success' if episode.success else 'failure'} after {episode.seconds:.1f} s "
-                  f"({done}/{len(episodes)})")
+            print(f"seed {seed}: {'success' if episode.success else 'failure'} after {episode.seconds:.1f} s, the "
+                  f"cube rose {1000 * episode.lift:.0f} mm ({done}/{len(episodes)})", flush=True)
     finally:
         env.close()
         if writer is not None:
@@ -162,7 +175,8 @@ def main() -> None:
     times = [e.seconds for e in episodes if e.success]
     summary = f"{len(times)} of {len(episodes)} episodes succeeded ({100 * len(times) / max(len(episodes), 1):.0f} %)"
     if times:
-        summary += f", in {np.mean(times):.1f} s on average ({min(times):.1f}–{max(times):.1f} s)"
+        summary += (f", {sum(e.carried for e in episodes)} of them with the cube lifted, in {np.mean(times):.1f} s "
+                    f"on average ({min(times):.1f}–{max(times):.1f} s)")
     print(f"{summary}; evaluated in {time.monotonic() - started:.0f} s; rows in {RESULTS}")
 
 
