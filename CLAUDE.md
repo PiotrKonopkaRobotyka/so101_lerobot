@@ -22,7 +22,6 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
   command `so101_mujoco`); `world` frame and joint offsets, `scene` env at 30 Hz, heights, the home start and the
   operator's two views; `record` the LeRobot dataset (`--record`, ADR 0010); `evaluate` a trained policy's success
   rate (command `so101_mujoco_eval`).
-- `lerobot_mimic/` — legacy YOLO pose (AGPL-3.0) arm mimicking, J2/J3 only; kept as an example.
 
 ## Third-party (pinned in `so101_lerobot.repos` or `requirements.txt`, never modified)
 

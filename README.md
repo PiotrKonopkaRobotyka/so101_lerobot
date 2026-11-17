@@ -8,7 +8,6 @@ Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation onl
   kinematics and the clutch as a plain Python package with `pytest` tests, and a thin ROS 2 node (`hand_teleop`).
 - `so101_mujoco/` — the same hand teleoperation without ROS, picking and placing a cube in MuJoCo (so101-nexus):
   50 recorded demonstrations and an ACT policy trained on them, 33 % success against the operator's 89 %.
-- `lerobot_mimic/` — legacy: the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
 
 ## Workspace
 
@@ -174,8 +173,7 @@ python -m pytest src/so101_lerobot/so101_mujoco
 GitHub Actions runs them on every pull request and push to `main` (`.github/workflows/tests.yml`), without ROS
 or MediaPipe: the tracker tests are skipped there.
 
-Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `gesture_recognizer.task`,
-`yolo26m-pose.pt`.
+Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `gesture_recognizer.task`.
 
 ## Pick and place in MuJoCo (M3)
 

@@ -69,8 +69,6 @@ opencv-python-headless==4.12.0.88
 packaging==25.0
 pandas==2.3.3
 pillow==12.1.1
-polars==2.0.0
-polars-runtime-32==2.0.0
 propcache==0.4.1
 psutil==7.2.2
 pyarrow==23.0.1
@@ -98,8 +96,6 @@ typing-inspect==0.9.0
 typing_extensions==4.15.0
 tyro==1.0.17
 tzdata==2026.6
-ultralytics==8.4.22
-ultralytics-thop==2.2.2
 urllib3==2.6.3
 websockets==17.4
 xxhash==3.6.0
