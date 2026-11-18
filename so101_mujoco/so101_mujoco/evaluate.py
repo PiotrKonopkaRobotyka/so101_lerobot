@@ -98,6 +98,8 @@ class LeRobotPolicy:
         self.torch = torch
         config = PreTrainedConfig.from_pretrained(path)
         config.device = device
+        if getattr(config, "pretrained_backbone_weights", None):  # ACT: the checkpoint holds the trained backbone,
+            config.pretrained_backbone_weights = None  # so torchvision need not download the ImageNet one first
         if temporal_ensemble is not None:  # ACT: a chunk every step, the overlapping actions weighted exp(-coeff·age)
             config.temporal_ensemble_coeff, config.n_action_steps = temporal_ensemble, 1
         self.policy = get_policy_class(config.type).from_pretrained(path, config=config)

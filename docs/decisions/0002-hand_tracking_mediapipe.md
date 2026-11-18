@@ -30,6 +30,8 @@ numpy 2.2.6 would stay.
 ## Consequences
 
 - The new code path is Apache-2.0 only; `lerobot_mimic` stays as a legacy example (license question in M5).
+  Resolved (2026-11-17, ROB-46): the repository is released under Apache-2.0 and `lerobot_mimic` with the
+  `ultralytics` dependency was removed; it stays in the history (tag `v0.3-gazebo`).
 - World landmarks give hand distances in metres without a calibration template.
 - Handedness is not used: on raw webcam frames the right hand is labelled "Right", but in the side view the label
   flickers to "Left" in 3–11% of frames (ROB-19), so the code takes the one hand in view.

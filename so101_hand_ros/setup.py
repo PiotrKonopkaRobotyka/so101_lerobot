@@ -16,6 +16,6 @@ setup(
     maintainer="Piotr Konopka",
     maintainer_email="piotr.konopka.robotyka@gmail.com",
     description="ROS 2 node: the operator's hand seen by the webcam drives the simulated SO-101 gripper and arm",
-    license="TODO: License declaration",
+    license="Apache-2.0",
     entry_points={"console_scripts": ["hand_teleop = so101_hand_ros.hand_teleop:main"]},
 )

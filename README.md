@@ -1,14 +1,27 @@
 # so101_lerobot
 
-Scripts for the **SO-101** arm on **ROS 2 Jazzy** (Ubuntu 24.04), simulation only for now:
+Teaching the **SO-101** arm a pick and place in simulation **without a leader arm**: the operator's hand in front of
+a laptop webcam drives the simulated arm, the attempts become a LeRobot dataset, and an ACT policy learns the task
+from it. ROS 2 Jazzy for the Gazebo stages, plain Python for MuJoCo; one laptop (Ubuntu 24.04, RTX 4060 8 GB).
+
+![ACT picks the cube and places it on the disc: the overhead and the wrist camera, the policy's two views](docs/media/act_pick_and_place.gif)
+
+- **Teleoperation**: with the hand, a 25 mm cube goes onto a disc in MuJoCo (so101-nexus) in 50 of 56 attempts
+  (89 %), in 20 s on average.
+- **Data**: those 50 demonstrations, a LeRobot v3 dataset in the real SO-101 follower's schema.
+- **Policy**: ACT trained on them for 3.5 h on the laptop's GPU places the cube in 33 % of 50 new scenes.
+
+How it was built and what it showed: [docs/writeup.md](docs/writeup.md); the method's limits:
+[Limitations](#limitations).
+
+## Packages
 
 - `so101_bringup/` — Gazebo, controllers, MoveIt and RViz with one command.
 - `so101_hand/`, `so101_hand_ros/` — hand teleoperation from the webcam: closing the hand closes the simulated
-  gripper, moving it moves the arm in its plane. Hand tracking (MediaPipe), measures, calibration, filters,
-  kinematics and the clutch as a plain Python package with `pytest` tests, and a thin ROS 2 node (`hand_teleop`).
-- `so101_mujoco/` — the same hand teleoperation without ROS, picking and placing a cube in MuJoCo (so101-nexus):
-  50 recorded demonstrations and an ACT policy trained on them, 33 % success against the operator's 89 %.
-- `lerobot_mimic/` — legacy: the arm mirrors the operator's arm from a webcam (YOLO pose), see its README.
+  gripper, moving it moves the arm. Hand tracking (MediaPipe), measures, calibration, filters, kinematics and the
+  clutch as a plain Python package with `pytest` tests, and a thin ROS 2 node (`hand_teleop`).
+- `so101_mujoco/` — the same hand teleoperation without ROS in MuJoCo (so101-nexus), the recording of the
+  demonstrations and the evaluation of a trained policy.
 
 ## Workspace
 
@@ -83,6 +96,29 @@ of 10 Hz, ADR 0004): a joint reaches a goal in about 0.3 s instead of about 2 s.
 
 The arm has 5 joints, so the RViz interactive marker (a full 6-DoF pose for KDL IK) rarely finds a solution:
 set the goal with "Goal State" or tick "Approx IK Solutions" in the Planning tab.
+
+## Docker
+
+The MuJoCo part runs in a container, without ROS, a venv or a GPU: the `so101_mujoco` tests and the evaluation of a
+trained policy. MuJoCo renders with Mesa on the CPU and torch is the CPU build. The hand teleoperation needs the
+webcam and a window, and the training the GPU, so both run natively (above).
+
+```bash
+docker build -t so101_lerobot .            # in this repository
+docker run --rm so101_lerobot              # the so101_mujoco tests
+mkdir -p results
+docker run --rm --user "$(id -u):$(id -g)" -v <pretrained_model dir>:/policy:ro -v "$PWD/results":/data \
+  so101_lerobot so101_mujoco_eval /policy --device cpu --episodes 2
+```
+
+- The evaluation's rows go to `results/so101_mujoco/eval.csv` (`DATA_DIR=/data` in the image); `--user` keeps the
+  files yours instead of root's.
+- On a slow or unreliable link, download the wheels first (e.g. `pip download` and `curl`, which can resume) and
+  build from them, which downloads nothing: `docker build --build-context wheels=<dir> -t so101_lerobot .`
+- Measured on the laptop (2026-11-18): the image is 3.2 GB and builds in 1.5 min from 494 MB of local wheels; the
+  13 `so101_mujoco` tests pass in 2 min, the recording and evaluation ones included (CI skips them: no rendering
+  there). The evaluation runs at about 5 simulated steps/s on the CPU, so an episode of 60 s takes some 6 minutes:
+  the 50-episode protocol belongs on the GPU, natively.
 
 ## Hand → gripper (stage 1)
 
@@ -174,8 +210,7 @@ python -m pytest src/so101_lerobot/so101_mujoco
 GitHub Actions runs them on every pull request and push to `main` (`.github/workflows/tests.yml`), without ROS
 or MediaPipe: the tracker tests are skipped there.
 
-Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `gesture_recognizer.task`,
-`yolo26m-pose.pt`.
+Model weights are read from `$DATA_DIR/models` (default `~/data/models`): `gesture_recognizer.task`.
 
 ## Pick and place in MuJoCo (M3)
 
@@ -287,10 +322,8 @@ so101_mujoco_eval <the same> --episodes 3 --video act.mp4                      #
 
 ### Results
 
-![ACT picks the cube and places it on the disc: the overhead and the wrist camera, the policy's two views](docs/media/act_pick_and_place.gif)
-
-The policy after 50,000 steps picks the cube and places it on the disc in 14.8 s (seed 1037, real time; the two
-images are all it sees besides its joints). Over the 50 evaluation scenes (2026-11-16):
+The GIF at the top is the policy after 50,000 steps: it picks the cube and places it on the disc in 14.8 s (seed
+1037, real time; the two images are all it sees besides its joints). Over the 50 evaluation scenes (2026-11-16):
 
 | | Success | Time to success |
 | --- | --- | --- |
@@ -328,5 +361,19 @@ Limits of the method, known by design (ADR 0003, ADR 0005, ADR 0006, ADR 0007):
 - No wrist roll: joint 5 stays at 0, and the jaws point down (a top-down grasp) where the arm reaches it, tilting
   up to 45° elsewhere (the wrist flex limit): the block is grasped from above, within a part of the workspace.
 - Grasping only in MuJoCo (`so101_mujoco`), not in Gazebo: the Gazebo stages move the gripper and the arm with no
-  objects to pick. Recording demonstrations for training is planned in MuJoCo (ADR 0005, ROB-39).
+  objects to pick.
+- One task and 50 demonstrations: the ACT policy places the cube in a third of new scenes. It fails mostly by
+  missing the grasp, and it does not notice: a failed episode runs until the time limit.
+- The success is so101-nexus's check, the cube resting on the disc, released; the evaluation adds the cube's lift
+  to tell a carried cube from a pushed one. A scene's outcome is not repeatable (numerical differences on the GPU
+  grow in the closed loop), so a rate over 50 episodes is good to about ±13 points.
+- The simulated cameras are fixed and render without noise (no domain randomization, ADR 0010): a real arm's
+  cameras would show the policy a different picture.
 - Simulation only: no real SO-101 has been driven yet.
+
+## License
+
+Apache-2.0 ([LICENSE](LICENSE)). The third-party parts keep their own licenses: `lerobot_ws` (Pavankv92,
+Apache-2.0) is pinned in `so101_lerobot.repos`, and so101-nexus (Apache-2.0), LeRobot (Apache-2.0) and MediaPipe
+(Apache-2.0) come from PyPI. MediaPipe's Gesture Recognizer model is downloaded separately (see Python environment):
+its model card names no license.

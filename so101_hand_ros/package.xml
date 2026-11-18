@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>ROS 2 node that drives the simulated SO-101 gripper and arm with the operator's hand seen by the webcam.</description>
   <maintainer email="piotr.konopka.robotyka@gmail.com">Piotr Konopka</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
