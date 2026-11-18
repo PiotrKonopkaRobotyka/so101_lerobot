@@ -41,6 +41,8 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 - ACT: train with README's `lerobot-train` command (inputs listed, bf16; 50k steps = 3.5 h on the RTX 4060), weights
   in `~/data/models/so101_act`; evaluate with `so101_mujoco_eval <output_dir>/checkpoints/last/pretrained_model`
   (50 episodes, ~8 min on the GPU). Long runs detached from the session (`setsid nohup`, `~/code/CLAUDE.md`).
+- Docker (`Dockerfile`, MuJoCo without ROS, torch for the CPU, no venv needed): `docker build -t so101_lerobot .`; its
+  default command is the `so101_mujoco` tests, a mounted policy runs with `so101_mujoco_eval` (README "Docker").
 - Scripted checks: `sim.launch.py … headless:=true video:=<file> preview:=false` (the GUI needs OpenGL), e.g. on
   `~/data/hand_depth_spike/plane.avi`; own `ROS_DOMAIN_ID`, `GZ_PARTITION`; `set -m`, `kill -INT -- -<pgid>`; no
   `set -u`; never the webcam unasked. The sandbox blocks multicast, so nothing is found without `GZ_IP=127.0.0.1
@@ -77,8 +79,5 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Current milestone
 
-M3 done (2026-11-14, exit criteria: ADR 0005): the hand drives SO-101 in MuJoCo (ROB-38, ADR 0006–0009) and ROB-39
-recorded 50 demonstrations (ADR 0010): teleoperation 50 of 56 (89 %), 20.0 s per pick and place on average. M4 done
-(2026-11-16, ROB-40): ACT on the 50 episodes, 50k steps, succeeds in 17 and 16 of 50 scenes in MuJoCo (two runs, 33 %;
-one run is good to ±13 points, a scene's outcome differs between runs); 20 episodes gave 0–3 of 50, temporal
-ensembling 10 of 50. Now M5: ROB-46 (release: Apache-2.0, no `lerobot_mimic/`, a light Docker image, a write-up).
+M3 and M4 done (2026-11-16; the numbers live in the README, exit criteria in ADR 0005). Now M5, ROB-46: the release —
+Apache-2.0, no `lerobot_mimic/`, the Docker image, `docs/writeup.md`; Piotr makes the repository public.

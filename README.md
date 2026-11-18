@@ -97,6 +97,29 @@ of 10 Hz, ADR 0004): a joint reaches a goal in about 0.3 s instead of about 2 s.
 The arm has 5 joints, so the RViz interactive marker (a full 6-DoF pose for KDL IK) rarely finds a solution:
 set the goal with "Goal State" or tick "Approx IK Solutions" in the Planning tab.
 
+## Docker
+
+The MuJoCo part runs in a container, without ROS, a venv or a GPU: the `so101_mujoco` tests and the evaluation of a
+trained policy. MuJoCo renders with Mesa on the CPU and torch is the CPU build. The hand teleoperation needs the
+webcam and a window, and the training the GPU, so both run natively (above).
+
+```bash
+docker build -t so101_lerobot .            # in this repository
+docker run --rm so101_lerobot              # the so101_mujoco tests
+mkdir -p results
+docker run --rm --user "$(id -u):$(id -g)" -v <pretrained_model dir>:/policy:ro -v "$PWD/results":/data \
+  so101_lerobot so101_mujoco_eval /policy --device cpu --episodes 2
+```
+
+- The evaluation's rows go to `results/so101_mujoco/eval.csv` (`DATA_DIR=/data` in the image); `--user` keeps the
+  files yours instead of root's.
+- On a slow or unreliable link, download the wheels first (e.g. `pip download` and `curl`, which can resume) and
+  build from them, which downloads nothing: `docker build --build-context wheels=<dir> -t so101_lerobot .`
+- Measured on the laptop (2026-11-18): the image is 3.2 GB and builds in 1.5 min from 494 MB of local wheels; the
+  13 `so101_mujoco` tests pass in 2 min, the recording and evaluation ones included (CI skips them: no rendering
+  there). The evaluation runs at about 5 simulated steps/s on the CPU, so an episode of 60 s takes some 6 minutes:
+  the 50-episode protocol belongs on the GPU, natively.
+
 ## Hand → gripper (stage 1)
 
 ![Webcam preview with the measured thumb–index gap (left) and the gripper in Gazebo (right)](docs/media/hand_gripper.gif)
