@@ -79,5 +79,5 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Current milestone
 
-M3 and M4 done (2026-11-16; the numbers live in the README, exit criteria in ADR 0005). Now M5, ROB-46: the release —
-Apache-2.0, no `lerobot_mimic/`, the Docker image, `docs/writeup.md`; Piotr makes the repository public.
+The project is finished (2026-11-18): M0–M5 done, the exit criteria of ADR 0005 met, the repository public. The
+numbers live in the README; next steps (a real arm, randomized cameras, more demonstrations) would be a new project.
