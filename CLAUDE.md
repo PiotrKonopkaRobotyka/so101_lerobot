@@ -31,7 +31,7 @@ pick and place with ~50 demonstrations in MuJoCo (M3), ACT (M4), release (M5); e
 
 ## Build, run, check
 
-- Build: only the `moveit_ws` underlay and the venv sourced, `python -m colcon build` in `so101_ws` (README).
+- Build: only `/opt/ros/jazzy` (MoveIt from apt) and the venv sourced, `python -m colcon build` in `so101_ws` (README).
 - Run: `so101_sim` or `so101_hand`; without aliases `ws so101` and `ros2 launch so101_bringup sim.launch.py`;
   MuJoCo: `so101_mujoco` (venv; no ROS).
 - Check: `ros2 control list_controllers` shows 3 active controllers; Plan & Execute in RViz moves the arm.

@@ -41,7 +41,7 @@ vcs import src < src/so101_lerobot/so101_lerobot.repos
 rosdep install --from-paths src --ignore-src -y
 ```
 
-Built on top of a MoveIt 2 underlay (`moveit_ws`).
+MoveIt 2 comes from apt (`rosdep` above installs it); the only underlay is `/opt/ros/jazzy`.
 
 ## Python environment
 
@@ -76,7 +76,7 @@ curl -L -o ~/data/models/gesture_recognizer.task \
 ## Build and run
 
 ```bash
-source <moveit_ws>/install/setup.bash
+source /opt/ros/jazzy/setup.bash
 source .venv/bin/activate
 python -m colcon build
 ```
